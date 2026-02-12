@@ -9,7 +9,7 @@ This is a lightweight, open-source ML regressor for reproducing the BSEC IAQ ind
 ./setup.sh
 
 # Train models
-./venv/bin/python -m airml train --model all --epochs 50
+./venv/bin/python -m iaqforge train --model all --epochs 50
 
 # Start API server  
 ./venv/bin/python -m app.main --reload
@@ -37,7 +37,7 @@ This is a lightweight, open-source ML regressor for reproducing the BSEC IAQ ind
 
 ## Configuration
 
-AirML uses YAML configuration files for flexible setup:
+iaqforge uses YAML configuration files for flexible setup:
 
 ### Model Configuration (`model_config.yaml`)
 - Neural network architecture parameters

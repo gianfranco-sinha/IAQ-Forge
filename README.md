@@ -1,4 +1,4 @@
-# AirML
+# IAQ-Forge
 
 Commercial ML platform for BSEC IAQ index reproduction from raw BME680 sensor data.
 

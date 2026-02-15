@@ -50,6 +50,12 @@ def create_parser():
         type=int,
         help="Number of records to fetch from database (optional)",
     )
+    train_parser.add_argument(
+        "--data-source",
+        choices=["synthetic", "influxdb"],
+        default="synthetic",
+        help="Data source for training (default: synthetic)",
+    )
 
     # List models command
     list_parser = subparsers.add_parser(
@@ -81,12 +87,19 @@ def main():
             print(f"Training {model_type.upper()} model...")
             print(f"{'=' * 60}")
 
+            # Build data source
+            data_source = None
+            if args.data_source == "influxdb":
+                from training.data_sources import InfluxDBSource
+                data_source = InfluxDBSource()
+
             try:
                 trainer.train_model(
                     model_type=model_type,
                     epochs=args.epochs,
                     window_size=args.window_size,
                     num_records=args.data_records,
+                    data_source=data_source,
                 )
                 print(f"✅ {model_type.upper()} training completed successfully")
             except Exception as e:
@@ -94,10 +107,10 @@ def main():
                 continue
 
     elif args.command == "list":
-        from app.models import IAQPredictor
+        from app.models import MODEL_REGISTRY
 
         print("Available models in registry:")
-        for model_type in IAQPredictor()._model_registry.keys():
+        for model_type in MODEL_REGISTRY:
             print(f"  - {model_type}")
 
 

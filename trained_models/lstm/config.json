@@ -1,29 +1,9 @@
 {
-  "model_type": "lstm",
-  "model_params": {
-    "window_size": 10,
-    "num_features": 6,
-    "device": "cpu",
-    "default_dropout": 0.2,
-    "hidden_size": 128,
-    "num_layers": 2,
-    "dropout": 0.3,
-    "bidirectional": true,
-    "fc_layers": [
-      64,
-      32
-    ]
-  },
-  "training": {
-    "epochs": 200,
-    "lr": 0.001,
-    "batch_size": 32
-  },
-  "metrics": {
-    "final_train_loss": 0.12302391976118088,
-    "final_val_loss": 2.002037763595581,
-    "mae": 0.9875690340995789,
-    "rmse": 1.4149338006973267,
-    "r2": -1.959302280120942
-  }
+  "baseline_gas_resistance": 272519.4872821773,
+  "trained_date": "2026-02-14T18:06:41.365123",
+  "window_size": 10,
+  "mae": 109.72908883877366,
+  "rmse": 128.70932397075188,
+  "r2": 0.21716993536882756,
+  "notes": "Trained on real BSEC data with LSTM"
 }

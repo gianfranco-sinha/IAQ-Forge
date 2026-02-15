@@ -179,6 +179,65 @@ class KANRegressor(nn.Module):
         return self.kan(x)
 
 
+MODEL_REGISTRY = {
+    "mlp": MLPRegressor,
+    "lstm": LSTMRegressor,
+    "cnn": CNNRegressor,
+    "kan": KANRegressor,
+}
+
+
+def build_model(model_type: str, window_size: int = 10, num_features: int = 6) -> nn.Module:
+    """Build a model instance from the registry using YAML config.
+
+    Args:
+        model_type: One of "mlp", "kan", "lstm", "cnn".
+        window_size: Sliding window size (used to compute input_dim for MLP/KAN).
+        num_features: Number of features per timestep.
+
+    Returns:
+        An instantiated nn.Module ready for training.
+    """
+    from app.config import settings
+
+    if model_type not in MODEL_REGISTRY:
+        raise ValueError(f"Unknown model type: {model_type}. Must be one of {list(MODEL_REGISTRY)}")
+
+    ModelCls = MODEL_REGISTRY[model_type]
+    cfg = settings.get_model_config(model_type)
+
+    if model_type == "mlp":
+        return ModelCls(
+            input_dim=window_size * num_features,
+            hidden_dims=cfg.get("hidden_dims", [64, 32, 16]),
+            dropout=cfg.get("dropout", 0.2),
+        )
+    elif model_type == "kan":
+        return ModelCls(
+            input_dim=window_size * num_features,
+            hidden_dims=cfg.get("hidden_dims", [32, 16]),
+        )
+    elif model_type == "lstm":
+        return ModelCls(
+            window_size=cfg.get("window_size", window_size),
+            num_features=cfg.get("num_features", num_features),
+            hidden_size=cfg.get("hidden_size", 128),
+            num_layers=cfg.get("num_layers", 2),
+            dropout=cfg.get("dropout", 0.3),
+            bidirectional=cfg.get("bidirectional", True),
+        )
+    elif model_type == "cnn":
+        return ModelCls(
+            window_size=cfg.get("window_size", window_size),
+            num_features=cfg.get("num_features", num_features),
+            num_filters=cfg.get("num_filters", [64, 128, 256]),
+            kernel_sizes=cfg.get("kernel_sizes", [3, 3, 3]),
+            dropout=cfg.get("dropout", 0.3),
+        )
+
+    return ModelCls(**cfg)
+
+
 class IAQPredictor:
     """Main predictor class that handles model loading and inference with sliding window."""
 
@@ -204,13 +263,7 @@ class IAQPredictor:
         # Sliding window buffer for temporal data
         self.buffer: list = []
 
-        # Model registry for creating instances
-        self._model_registry: dict = {
-            "mlp": MLPRegressor,
-            "lstm": LSTMRegressor,
-            "cnn": CNNRegressor,
-            "kan": KANRegressor,
-        }
+        self._model_registry = MODEL_REGISTRY
 
     def load_model(self, model_path: str) -> bool:
         """Load model from saved artifacts."""

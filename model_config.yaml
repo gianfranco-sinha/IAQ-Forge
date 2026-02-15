@@ -60,18 +60,14 @@ cnn:
   # Fully connected layers after convolutions
   fc_layers: [128, 64]         # FC layer dimensions before output
 
-# Training configuration (optional - for training scripts)
+# Training configuration — read by TrainingPipeline and train_model()
 training:
-  # Common training parameters
+  epochs: 200
   batch_size: 32
   learning_rate: 0.001
-  num_epochs: 100
-  validation_split: 0.2
-  # Early stopping
-  early_stopping_patience: 10
-  min_delta: 0.001
-  # Loss function and optimizer
-  loss_function: "mse"         # mse/mae/huber
-  optimizer: "adam"            # adam/sgd/rmsprop
-  # Learning rate scheduling
-  lr_scheduler: "reduce_on_plateau"  # none/reduce_on_plateau/step/cosine
+  test_size: 0.2               # validation split ratio
+  random_state: 42
+  min_samples: 100             # minimum rows required after ingestion
+  # LR scheduler (ReduceLROnPlateau)
+  lr_scheduler_patience: 10
+  lr_scheduler_factor: 0.5

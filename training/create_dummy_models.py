@@ -1,5 +1,5 @@
 """
-Create dummy models for testing the service without real training.
+Create dummy trained models for testing the service without real training.
 WARNING: These will produce random predictions!
 """
 
@@ -89,10 +89,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print()
 
-    create_dummy_model("mlp", "trained_models/mlp")
-    create_dummy_model("cnn", "trained_models/cnn")
-    create_dummy_model("kan", "trained_models/kan")
-    create_dummy_model("lstm", "trained_models/lstm")
+    create_dummy_model("mlp", "../trained_models/mlp")
+    create_dummy_model("cnn", "../trained_models/cnn")
+    create_dummy_model("kan", "../trained_models/kan")
+    create_dummy_model("lstm", "../trained_models/lstm")
     print()
     print("=" * 60)
     print("✓ All dummy models created successfully!")

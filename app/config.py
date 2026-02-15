@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # Model settings
     DEFAULT_MODEL: str = "mlp"
+    TRAINED_MODELS_BASE: str = "trained_models"
     MLP_MODEL_PATH: str = "trained_models/mlp"
     KAN_MODEL_PATH: str = "trained_models/kan"
     CNN_MODEL_PATH: str = "trained_models/cnn"
@@ -91,6 +92,22 @@ class Settings(BaseSettings):
                 "fc_layers": [128, 64],
             },
         }
+
+    def get_training_config(self) -> Dict[str, Any]:
+        """Get training configuration with defaults."""
+        config = self.load_model_config()
+        defaults = {
+            "epochs": 200,
+            "batch_size": 32,
+            "learning_rate": 0.001,
+            "test_size": 0.2,
+            "random_state": 42,
+            "min_samples": 100,
+            "lr_scheduler_patience": 10,
+            "lr_scheduler_factor": 0.5,
+        }
+        defaults.update(config.get("training", {}))
+        return defaults
 
     def get_model_config(self, model_type: str) -> Dict[str, Any]:
         """Get configuration for a specific model type."""

@@ -2,17 +2,13 @@ from pathlib import Path
 import json
 import os
 import pickle
-from typing import Union
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-import joblib
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-from app.config import settings
 
 
 def get_device():
@@ -22,52 +18,6 @@ def get_device():
     elif torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")
-
-
-def fetch_training_data(
-    measurement="bme688",
-    hours_back=168 * 8,
-    min_iaq_accuracy=2,
-):
-    """Fetch training data from InfluxDB using centralized config."""
-    from influxdb import DataFrameClient
-
-    host = settings.INFLUX_HOST
-    port = settings.INFLUX_PORT
-
-    print(f"Connecting to InfluxDB at {host}:{port}...")
-
-    client = DataFrameClient(
-        host=host,
-        port=port,
-        username=settings.INFLUX_USERNAME,
-        password=settings.INFLUX_PASSWORD,
-        database=settings.INFLUX_DATABASE,
-    )
-
-    query = f"""
-    SELECT temperature, rel_humidity, pressure, gas_resistance, iaq, iaq_accuracy
-    FROM {measurement}
-    WHERE time > now() - {hours_back}h
-    """
-
-    print(f"Fetching data from last {hours_back / 168:.1f} weeks...")
-    result = client.query(query)
-
-    if measurement not in result:
-        raise ValueError(f"No data found in measurement '{measurement}'")
-
-    df = result[measurement]
-    print(f"Fetched {len(df)} raw data points")
-
-    df = df[df["iaq_accuracy"] >= min_iaq_accuracy]
-    df = df.dropna()
-
-    print(f"After filtering (iaq_accuracy >= {min_iaq_accuracy}): {len(df)} samples")
-    print(f"Date range: {df.index.min()} to {df.index.max()}")
-    print(f"IAQ range: {df['iaq'].min():.1f} - {df['iaq'].max():.1f}")
-
-    return df, client
 
 
 def create_sliding_windows(features, targets, window_size=10):
@@ -89,36 +39,11 @@ def calculate_absolute_humidity(temperature, rel_humidity):
     return (6.112 * np.exp(alpha) * 2.1674) / (273.15 + temperature)
 
 
-def prepare_features(df, window_size=10):
-    """Engineer features and create sliding windows.
-
-    Returns (X, y, baseline_gas_resistance) where X has 6 features per timestep:
-    temperature, rel_humidity, pressure, gas_resistance, gas_ratio, abs_humidity.
-    """
-    print("\nEngineering features...")
-
-    features = df[["temperature", "rel_humidity", "pressure", "gas_resistance"]].values
-
-    baseline_gas_resistance = np.median(features[:, 3])
-    print(f"Baseline gas resistance: {baseline_gas_resistance:.0f} Ohm")
-
-    gas_ratio = features[:, 3] / baseline_gas_resistance
-    abs_humidity = calculate_absolute_humidity(features[:, 0], features[:, 1])
-
-    features_enhanced = np.column_stack(
-        [features, gas_ratio.reshape(-1, 1), abs_humidity.reshape(-1, 1)]
-    )
-
-    targets = df["iaq"].values
-
-    print(f"Creating sliding windows (size={window_size})...")
-    X, y = create_sliding_windows(features_enhanced, targets, window_size)
-    print(f"Created {len(X)} windows with {X.shape[1]} features each")
-
-    return X, y, baseline_gas_resistance
-
-
-def train_model(model, X_train, y_train, X_val, y_val, model_name, epochs=200, device=None):
+def train_model(
+    model, X_train, y_train, X_val, y_val, model_name,
+    epochs=200, device=None, batch_size=32, learning_rate=0.001,
+    lr_scheduler_patience=10, lr_scheduler_factor=0.5,
+):
     """Train a model with DataLoader, LR scheduler, and validation tracking."""
     if device is None:
         device = get_device()
@@ -133,13 +58,13 @@ def train_model(model, X_train, y_train, X_val, y_val, model_name, epochs=200, d
         torch.FloatTensor(X_val), torch.FloatTensor(y_val).reshape(-1, 1)
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=32)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=10
+        optimizer, mode="min", factor=lr_scheduler_factor, patience=lr_scheduler_patience
     )
 
     best_val_loss = float("inf")
@@ -274,87 +199,3 @@ def save_trained_model(
         )
 
     print(f"\n  Saved {model_type.upper()}: MAE={metrics['mae']:.2f}, R2={metrics['r2']:.4f}")
-
-
-# --- Functions used by the iaqforge CLI path (training/train.py) ---
-
-def save_model(
-    model,
-    model_name: str,
-    output_dir: Union[str, Path],
-    config: dict,
-    scaler=None,
-):
-    """Save model weights, config, and optional scaler for iaqforge CLI."""
-    output_dir = Path(output_dir) / model_name
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    torch.save(model.state_dict(), output_dir / "model.pt")
-
-    with open(output_dir / "config.json", "w") as f:
-        json.dump(config, f, indent=2)
-
-    if scaler is not None:
-        joblib.dump(scaler, output_dir / "scaler.pkl")
-
-
-def load_model(
-    model_cls,
-    model_name: str,
-    model_dir: Union[str, Path],
-    device: str = "cpu",
-):
-    """Load model, config, and optional scaler."""
-    model_dir = Path(model_dir) / model_name
-
-    with open(model_dir / "config.json") as f:
-        config = json.load(f)
-
-    model = model_cls(**config["model_params"])
-    model.load_state_dict(torch.load(model_dir / "model.pt", map_location=device))
-    model.to(device)
-    model.eval()
-
-    scaler_path = model_dir / "scaler.pkl"
-    scaler = joblib.load(scaler_path) if scaler_path.exists() else None
-
-    return model, config, scaler
-
-
-def load_dataset(config):
-    """Placeholder dataset for iaqforge CLI training (generates dummy data)."""
-    model_type = config.get("model_type", "mlp")
-    num_features = 6  # 4 raw + 2 engineered
-
-    if model_type in ["lstm", "cnn"]:
-        window_size = config.get("model_params", {}).get("window_size", 10)
-        feat = config.get("model_params", {}).get("num_features", num_features)
-        X_train = np.random.randn(100, window_size, feat).astype(np.float32)
-        y_train = np.random.randn(100, 1).astype(np.float32)
-        X_val = np.random.randn(20, window_size, feat).astype(np.float32)
-        y_val = np.random.randn(20, 1).astype(np.float32)
-    else:
-        input_dim = config.get("model_params", {}).get("input_dim", num_features)
-        X_train = np.random.randn(100, input_dim).astype(np.float32)
-        y_train = np.random.randn(100, 1).astype(np.float32)
-        X_val = np.random.randn(20, input_dim).astype(np.float32)
-        y_val = np.random.randn(20, 1).astype(np.float32)
-
-    scaler = None
-    return X_train, y_train, X_val, y_val, scaler
-
-
-def save_artifacts(model, scaler, config, model_name, training_history=None):
-    """Save model artifacts using save_model (iaqforge CLI path)."""
-    output_dir = Path("trained_models")
-    save_model(model, model_name, output_dir, config, scaler)
-
-    if training_history is not None:
-        save_training_history(
-            model_type=model_name,
-            epochs=len(training_history["train_losses"]),
-            train_losses=training_history["train_losses"],
-            val_losses=training_history["val_losses"],
-            metrics=training_history.get("metrics", {}),
-            output_dir=output_dir / model_name,
-        )

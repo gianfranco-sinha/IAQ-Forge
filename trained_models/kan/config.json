@@ -1,28 +1,9 @@
 {
-  "model_type": "kan",
-  "model_params": {
-    "window_size": 10,
-    "num_features": 6,
-    "device": "cpu",
-    "default_dropout": 0.2,
-    "hidden_dims": [
-      32,
-      16
-    ],
-    "input_dim": 6,
-    "grid_size": 5,
-    "spline_order": 3
-  },
-  "training": {
-    "epochs": 200,
-    "lr": 0.001,
-    "batch_size": 32
-  },
-  "metrics": {
-    "final_train_loss": 0.0012429639464244246,
-    "final_val_loss": 1.1321935653686523,
-    "mae": 0.8949244618415833,
-    "rmse": 1.064045786857605,
-    "r2": -0.9922665622121754
-  }
+  "baseline_gas_resistance": 272519.4872821773,
+  "trained_date": "2026-02-14T18:06:40.730857",
+  "window_size": 10,
+  "mae": 75.55773218108304,
+  "rmse": 91.98054245209494,
+  "r2": 0.6002031104994544,
+  "notes": "Trained on real BSEC data with KAN"
 }

@@ -13,6 +13,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from training.train import train_single_model
+from training.data_sources import DataSource
 from app.config import settings
 
 
@@ -29,23 +30,26 @@ class ModelTrainer:
         epochs: int = 200,
         window_size: int = 10,
         num_records: int = None,
+        data_source: DataSource = None,
     ):
         """Train a specific model type."""
         if model_type not in ["mlp", "kan", "lstm", "cnn"]:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+        source_label = data_source.name if data_source else "synthetic"
         print(f"Starting training for {model_type.upper()} model...")
         print(f"Configuration:")
         print(f"  - Epochs: {epochs}")
         print(f"  - Window Size: {window_size}")
+        print(f"  - Data Source: {source_label}")
         print(f"  - Data Records: {num_records if num_records else 'All available'}")
-        print(f"  - Database: {self.influx_database}")
 
         success = train_single_model(
             model_type=model_type,
             epochs=epochs,
             window_size=window_size,
             num_records=num_records,
+            data_source=data_source,
         )
 
         if success:

@@ -24,6 +24,14 @@ inference_engines = {}
 active_model = settings.DEFAULT_MODEL
 
 
+MODEL_PATHS = {
+    "mlp": settings.MLP_MODEL_PATH,
+    "kan": settings.KAN_MODEL_PATH,
+    "lstm": settings.LSTM_MODEL_PATH,
+    "cnn": settings.CNN_MODEL_PATH,
+}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load models on startup."""
@@ -31,40 +39,34 @@ async def lifespan(app: FastAPI):
 
     logger.info("Loading IAQ prediction models...")
 
-    # Try to load MLP
-    try:
-        mlp = IAQPredictor(model_type='mlp', window_size=settings.WINDOW_SIZE)
-        mlp.load_model(settings.MLP_MODEL_PATH)
-        predictors['mlp'] = mlp
-        inference_engines['mlp'] = InferenceEngine(mlp)
-        logger.info("MLP model loaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to load MLP model: {e}")
-
-    # Try to load KAN
-    try:
-        kan = IAQPredictor(model_type='kan', window_size=settings.WINDOW_SIZE)
-        kan.load_model(settings.KAN_MODEL_PATH)
-        predictors['kan'] = kan
-        inference_engines['kan'] = InferenceEngine(kan)
-        logger.info("KAN model loaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to load KAN model: {e}")
-
-    # Try to load LSTM
-    try:
-        lstm = IAQPredictor(model_type='lstm', window_size=settings.WINDOW_SIZE)
-        lstm.load_model(settings.LSTM_MODEL_PATH)
-        predictors['lstm'] = lstm
-        inference_engines['lstm'] = InferenceEngine(lstm)
-        logger.info("LSTM model loaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to load LSTM model: {e}")
+    for model_type, model_path in MODEL_PATHS.items():
+        try:
+            predictor = IAQPredictor(model_type=model_type, window_size=settings.WINDOW_SIZE)
+            if not predictor.load_model(model_path):
+                logger.warning("No trained %s model found at %s", model_type.upper(), model_path)
+                continue
+            predictors[model_type] = predictor
+            inference_engines[model_type] = InferenceEngine(predictor)
+            logger.info("%s model loaded successfully", model_type.upper())
+        except Exception as e:
+            logger.warning("Failed to load %s model: %s", model_type.upper(), e)
 
     if not predictors:
-        logger.error("No models loaded! Service will not be functional.")
+        logger.error(
+            "No trained models found. The service will start in degraded mode — "
+            "all prediction endpoints will return 503.\n"
+            "  Train models with:  python -m iaqforge train --model mlp --epochs 200\n"
+            "  Or create dummies:  python training/create_dummy_models.py"
+        )
     else:
-        logger.info(f"Active model: {active_model}")
+        if active_model not in predictors:
+            fallback = next(iter(predictors))
+            logger.warning(
+                "Default model '%s' not available. Falling back to '%s'.",
+                active_model, fallback,
+            )
+            active_model = fallback
+        logger.info("Active model: %s  |  Available: %s", active_model, list(predictors.keys()))
 
     # Check InfluxDB connection
     if settings.INFLUX_ENABLED:
@@ -168,9 +170,14 @@ async def select_model(selection: ModelSelection):
 async def predict_iaq(reading: SensorReading):
     """Predict IAQ from sensor reading with enhanced statistics."""
     if active_model not in predictors:
+        if not predictors:
+            raise HTTPException(
+                status_code=503,
+                detail="No trained models available. Train with: python -m iaqforge train --model mlp",
+            )
         raise HTTPException(
             status_code=503,
-            detail=f"Active model '{active_model}' not available"
+            detail=f"Active model '{active_model}' not available. Loaded models: {list(predictors.keys())}",
         )
 
     try:

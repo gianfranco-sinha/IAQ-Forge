@@ -1,36 +1,9 @@
 {
-  "model_type": "cnn",
-  "model_params": {
-    "window_size": 10,
-    "num_features": 6,
-    "device": "cpu",
-    "default_dropout": 0.2,
-    "num_filters": [
-      64,
-      128,
-      256
-    ],
-    "kernel_sizes": [
-      3,
-      3,
-      3
-    ],
-    "dropout": 0.3,
-    "fc_layers": [
-      128,
-      64
-    ]
-  },
-  "training": {
-    "epochs": 200,
-    "lr": 0.001,
-    "batch_size": 32
-  },
-  "metrics": {
-    "final_train_loss": 0.11300791054964066,
-    "final_val_loss": 1.2553081512451172,
-    "mae": 0.928467869758606,
-    "rmse": 1.1204053163528442,
-    "r2": 0.014161345110802914
-  }
+  "baseline_gas_resistance": 272519.4872821773,
+  "trained_date": "2026-02-14T18:06:42.032814",
+  "window_size": 10,
+  "mae": 95.59935986656012,
+  "rmse": 114.97428196323791,
+  "r2": 0.3753325305867121,
+  "notes": "Trained on real BSEC data with CNN"
 }

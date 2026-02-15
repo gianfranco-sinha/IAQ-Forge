@@ -1,30 +1,9 @@
 {
-  "model_type": "mlp",
-  "model_params": {
-    "window_size": 10,
-    "num_features": 6,
-    "device": "cpu",
-    "default_dropout": 0.2,
-    "hidden_dims": [
-      64,
-      32,
-      16
-    ],
-    "dropout": 0.2,
-    "activation": "relu",
-    "use_batch_norm": true,
-    "input_dim": 6
-  },
-  "training": {
-    "epochs": 5,
-    "lr": 0.001,
-    "batch_size": 32
-  },
-  "metrics": {
-    "final_train_loss": 1.0002485513687134,
-    "final_val_loss": 0.7762942910194397,
-    "mae": 0.6841071844100952,
-    "rmse": 0.8810756802558899,
-    "r2": -0.03738269851678666
-  }
+  "baseline_gas_resistance": 272172.11503282026,
+  "trained_date": "2026-02-14T18:07:00.964132",
+  "window_size": 10,
+  "mae": 155.7782044141275,
+  "rmse": 191.0432058859836,
+  "r2": -0.918938516262547,
+  "notes": "Trained on real BSEC data with MLP"
 }

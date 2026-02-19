@@ -416,3 +416,127 @@ DELETE /sensors/{sensor_name}
 - [ ] Background task support for slow operations (repo crawl, LLM inference)
 
 ---
+
+## Security Hardening
+
+### Production security improvements — P1
+
+**Current state:** Service is behind nginx reverse proxy but has several gaps.
+
+**Done:**
+
+- [x] Docker port bound to localhost only (`127.0.0.1:8001:8000`) — external
+  traffic must go through nginx
+
+**Requirements:**
+
+- [ ] HTTPS via Let's Encrypt / certbot on nginx for `enviro-sensors.uk`
+- [ ] API key authentication — require `X-API-Key` header on `/predict` and mutation endpoints
+- [ ] Rate limiting on nginx (`limit_req_zone`) to prevent abuse
+- [ ] Tighten CORS — replace `allow_origins=["*"]` with explicit allowed origins
+- [ ] Add `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security` headers in nginx
+- [ ] Read-only filesystem in Docker container (`read_only: true` with tmpfs for `/tmp`)
+
+---
+
+## LLM Agent
+
+### Agentic orchestrator for data ingestion, training, and insight — P2
+
+**Goal:** An embedded LLM agent that acts as the system's orchestration layer.
+Users express intent in natural language; the agent coordinates data ingestion,
+field mapping, training, evaluation, and reporting by calling existing
+components as tools.
+
+**Depends on:** Physical quantity registry, Semantic field mapping
+
+**Core capabilities:**
+
+**1. Universal data ingestion**
+- Accept sensor data from any source: file upload (CSV, JSON, Excel),
+  URL (raw file, API endpoint), or GitHub repo
+- LLM inspects the data, identifies columns, infers physical quantities
+  and units by cross-referencing `quantities.yaml`
+- Proposes a field mapping, user confirms, data is normalized to canonical
+  units and available as a `DataSource` for training
+
+**2. Pipeline orchestration**
+- User says "train a model on this data" — agent coordinates the full
+  workflow: ingest → map → validate → train → evaluate → report
+- Long-running operations (training) run async with progress updates
+- Agent decides model type, hyperparameters, or asks user when ambiguous
+- Compares new model against existing versions and recommends promotion
+
+**3. Diagnostic reasoning**
+- Interpret sensor drift, model divergence, preprocessing issues
+- "Why did IAQ spike at 3am?" — agent queries InfluxDB history, correlates
+  features, explains in natural language
+- Compare `iaq_predicted` vs `iaq_actual` and diagnose systematic errors
+
+**4. Conversational query interface**
+- `POST /agent/ask` — natural language questions about air quality, model
+  performance, data quality, sensor health
+- Agent has read access to InfluxDB history, model manifests, training
+  reports, and live predictions
+
+**Tool registry — each tool maps to an existing component:**
+
+```
+inspect_data     → Read file/URL, sample rows, infer schema and units
+map_fields       → Semantic field mapper (exact → fuzzy → LLM)
+validate_data    → PreprocessingReport, outlier detection, gap analysis
+train_model      → TrainingPipeline.orchestrate()
+evaluate_model   → Metrics comparison, category distribution, version diff
+query_history    → InfluxDB reads (predictions, actuals, sensor readings)
+explain          → Interpret readings + prediction in natural language
+manage_models    → List versions, switch active, compare MANIFEST entries
+manage_sensors   → List registered sensors, field mappings, quantities
+```
+
+**Proposed endpoints:**
+
+```
+POST   /agent/ask
+       Natural language query or command.
+       { "message": "Train an MLP on this CSV", "file": <upload> }
+       Returns: streaming response with reasoning + tool calls + result
+
+POST   /data/upload
+       Upload sensor data file for LLM-assisted ingestion.
+       Returns: proposed field mapping + data summary
+
+POST   /data/import
+       Import from URL (CSV link, API endpoint, GitHub repo).
+       { "url": "https://github.com/user/sensor-data", "format": "auto" }
+       Returns: proposed field mapping + data summary
+
+GET    /agent/tasks
+       List running/completed agent tasks (training jobs, data imports).
+```
+
+**Architecture:**
+
+- LLM backend: pluggable (Ollama local / Anthropic cloud), same as field
+  mapper — configured via `model_config.yaml`
+- Agent runs in a background task (FastAPI `BackgroundTasks` or Celery)
+  for long operations
+- Tool calls are structured function calls — the LLM decides which tools
+  to invoke and in what order based on user intent
+- All tool results are logged for audit trail
+- Prediction hot path (`/predict`) is unchanged — zero LLM latency on
+  real-time inference
+
+**Requirements:**
+
+- [ ] Tool registry: wrap existing components as callable tools with typed input/output schemas
+- [ ] Agent loop: LLM receives user message + tool definitions, emits tool calls, receives results, iterates
+- [ ] `POST /agent/ask` endpoint with streaming response
+- [ ] `POST /data/upload` — file upload + LLM-assisted schema inspection and mapping
+- [ ] `POST /data/import` — URL/repo import with auto-detection
+- [ ] `ExternalDataSource` class implementing `DataSource` ABC for user-provided data
+- [ ] Background task management for long-running agent operations
+- [ ] Conversation history (per-session) for multi-turn interactions
+- [ ] Ollama / Anthropic backend selection via config
+- [ ] Guardrails: agent can read data and trigger training but cannot modify production model without user confirmation
+
+---

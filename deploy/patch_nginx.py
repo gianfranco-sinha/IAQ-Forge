@@ -9,7 +9,7 @@ SNIPPET = """\
     # ----------------------------
     # iaq4j API
     # ----------------------------
-    location /iaq4j/ {
+    location /iaq/ {
         proxy_pass http://127.0.0.1:8001/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -25,8 +25,8 @@ MARKER = "    # ----------------------------\n    # Proxy all requests to Grafan
 with open(CONF) as f:
     content = f.read()
 
-if "iaq4j" in content:
-    print("iaq4j block already present")
+if "location /iaq/" in content:
+    print("iaq4j location block already present")
     sys.exit(0)
 
 if MARKER not in content:

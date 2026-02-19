@@ -95,40 +95,6 @@ app = FastAPI(
 )
 
 
-_original_openapi = app.openapi
-
-
-def _downgrade_schema(obj):
-    """Convert OpenAPI 3.1.0 constructs to 3.0.3 equivalents in place."""
-    if isinstance(obj, dict):
-        # anyOf with null → nullable (Pydantic v2 Optional pattern)
-        if "anyOf" in obj:
-            non_null = [s for s in obj["anyOf"] if s != {"type": "null"}]
-            if len(non_null) < len(obj["anyOf"]):
-                if len(non_null) == 1:
-                    obj.update(non_null[0])
-                    obj["nullable"] = True
-                    del obj["anyOf"]
-                else:
-                    obj["anyOf"] = non_null
-                    obj["nullable"] = True
-        for v in obj.values():
-            _downgrade_schema(v)
-    elif isinstance(obj, list):
-        for item in obj:
-            _downgrade_schema(item)
-
-
-def _openapi_3_0_compat():
-    """Pin OpenAPI to 3.0.3 for Swagger UI compatibility."""
-    schema = _original_openapi()
-    schema["openapi"] = "3.0.3"
-    _downgrade_schema(schema)
-    return schema
-
-
-app.openapi = _openapi_3_0_compat
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

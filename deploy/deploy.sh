@@ -74,12 +74,13 @@ REMOTE
 # 6. Verify
 echo "[6/6] Verifying deployment..."
 sleep 3
-ssh "$SERVER" "curl -s http://127.0.0.1:8000/ | python3 -m json.tool" || echo "Service may still be starting..."
+ssh "$SERVER" "curl -s http://127.0.0.1:8001/ | python3 -m json.tool" || echo "Service may still be starting..."
 
 echo ""
 echo "=== Deployment complete ==="
-echo "  Service:  http://87.106.102.14/iaq4j/"
-echo "  Health:   http://87.106.102.14/iaq4j/health/detailed"
-echo "  Predict:  POST http://87.106.102.14/iaq4j/predict"
+echo "  Service:  http://enviro-sensors.uk/iaq/"
+echo "  Docs:     http://enviro-sensors.uk/iaq/docs"
+echo "  Health:   http://enviro-sensors.uk/iaq/health/detailed"
+echo "  Predict:  POST http://enviro-sensors.uk/iaq/predict"
 echo "  InfluxDB: predictions → iaq_predictions.iaq_predictions"
 echo "  Logs:     ssh $SERVER 'journalctl -u iaq4j -f'"

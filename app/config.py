@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # API settings
-    API_TITLE: str = "AirML - IAQ Prediction Platform"
+    API_TITLE: str = "iaq4j - IAQ Prediction Platform"
     API_VERSION: str = "1.0.0"
     HOST: str = "0.0.0.0"
     PORT: int = 8000

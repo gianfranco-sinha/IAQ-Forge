@@ -3,8 +3,10 @@ services:
     build: .
     container_name: iaq4j
     restart: unless-stopped
+    environment:
+      - ROOT_PATH=/iaq
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
       - ./trained_models:/app/trained_models
       - ./database_config.yaml:/app/database_config.yaml

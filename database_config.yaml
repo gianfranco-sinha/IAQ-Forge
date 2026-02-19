@@ -1,5 +1,5 @@
 # ============================================================================
-# Database Configuration File for AirML
+# Database Configuration File for iaq4j
 # ============================================================================
 # This file contains database connection parameters
 # Modify these values to connect to your InfluxDB instance

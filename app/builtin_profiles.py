@@ -26,6 +26,31 @@ class BME680Profile(SensorProfile):
         return ["temperature", "rel_humidity", "pressure", "voc_resistance"]
 
     @property
+    def field_descriptions(self) -> Dict[str, Dict[str, str]]:
+        return {
+            "temperature": {
+                "unit": "°C",
+                "description": "Ambient temperature",
+                "example": "25.0",
+            },
+            "rel_humidity": {
+                "unit": "%RH",
+                "description": "Relative humidity",
+                "example": "45.0",
+            },
+            "pressure": {
+                "unit": "hPa",
+                "description": "Barometric pressure",
+                "example": "1013.25",
+            },
+            "voc_resistance": {
+                "unit": "Ω",
+                "description": "MOX sensor resistance to volatile organic compounds",
+                "example": "50000.0",
+            },
+        }
+
+    @property
     def valid_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {
             "temperature": (-40, 85),

@@ -60,6 +60,15 @@ cnn:
   # Fully connected layers after convolutions
   fc_layers: [128, 64]         # FC layer dimensions before output
 
+# BNN (Bayesian Neural Network) configuration
+bnn:
+  # Architecture parameters (same hidden dims as MLP)
+  hidden_dims: [64, 32, 16]     # Hidden layer dimensions
+  prior_sigma: 1.0               # Prior weight distribution std (N(0, prior_sigma))
+  kl_weight: 1.0                 # KL divergence weight in ELBO loss
+  # Input parameters
+  input_dim: 6                   # Number of input features
+
 # Sensor configuration — valid ranges for outlier filtering during preprocessing
 sensor:
   type: bme680

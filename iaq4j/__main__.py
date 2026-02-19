@@ -32,7 +32,7 @@ def create_parser():
     train_parser = subparsers.add_parser("train", help="Train a specific model")
     train_parser.add_argument(
         "--model",
-        choices=["mlp", "kan", "lstm", "cnn", "all"],
+        choices=["mlp", "kan", "lstm", "cnn", "bnn", "all"],
         required=True,
         help='Model type to train (or "all" for all models)',
     )
@@ -78,7 +78,7 @@ def main():
         trainer = ModelTrainer()
 
         if args.model == "all":
-            models_to_train = ["mlp", "kan", "lstm", "cnn"]
+            models_to_train = ["mlp", "kan", "lstm", "cnn", "bnn"]
         else:
             models_to_train = [args.model]
 

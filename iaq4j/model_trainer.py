@@ -33,7 +33,7 @@ class ModelTrainer:
         data_source: DataSource = None,
     ):
         """Train a specific model type."""
-        if model_type not in ["mlp", "kan", "lstm", "cnn"]:
+        if model_type not in ["mlp", "kan", "lstm", "cnn", "bnn"]:
             raise ValueError(f"Unsupported model type: {model_type}")
 
         source_label = data_source.name if data_source else "synthetic"
@@ -44,7 +44,7 @@ class ModelTrainer:
         print(f"  - Data Source: {source_label}")
         print(f"  - Data Records: {num_records if num_records else 'All available'}")
 
-        success = train_single_model(
+        result = train_single_model(
             model_type=model_type,
             epochs=epochs,
             window_size=window_size,
@@ -52,9 +52,15 @@ class ModelTrainer:
             data_source=data_source,
         )
 
-        if success:
+        if result:
             model_path = f"trained_models/{model_type}"
             print(f"\n✅ Training completed successfully!")
+            if result.version:
+                print(f"   Version: {result.version}")
+            if result.metrics:
+                print(f"   MAE={result.metrics['mae']:.2f}, "
+                      f"RMSE={result.metrics['rmse']:.2f}, "
+                      f"R2={result.metrics['r2']:.4f}")
             print(f"   Model saved to: {model_path}/")
             print(f"   Timestamp: {datetime.now().isoformat()}")
         else:
@@ -64,7 +70,7 @@ class ModelTrainer:
         self, epochs: int = 200, window_size: int = 10, num_records: int = None
     ):
         """Train all models in registry."""
-        models_to_train = ["mlp", "kan", "lstm", "cnn"]
+        models_to_train = ["mlp", "kan", "lstm", "cnn", "bnn"]
 
         for model_type in models_to_train:
             try:

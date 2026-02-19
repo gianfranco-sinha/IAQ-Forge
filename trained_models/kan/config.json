@@ -1,9 +1,14 @@
 {
-  "baseline_gas_resistance": 272519.4872821773,
-  "trained_date": "2026-02-15T11:39:56.293403",
+  "sensor_type": "bme680",
+  "iaq_standard": "bsec",
+  "baselines": {
+    "voc_resistance": 991684.8090259067
+  },
+  "baseline_gas_resistance": 991684.8090259067,
+  "trained_date": "2026-02-18T22:58:01.830064",
   "window_size": 10,
-  "mae": 16.034357403893278,
-  "rmse": 21.027516122897115,
-  "r2": 0.9777159400960235,
-  "notes": "Trained on real BSEC data with KAN"
+  "mae": 135.03838084196772,
+  "rmse": 171.2944120508679,
+  "r2": -0.6984058729179048,
+  "notes": "Trained with KAN (bme680/bsec)"
 }

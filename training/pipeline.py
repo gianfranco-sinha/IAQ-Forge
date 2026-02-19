@@ -16,12 +16,16 @@ import app.builtin_profiles  # noqa: F401  — registers sensor/standard profile
 from app.profiles import get_iaq_standard, get_sensor_profile
 from training.data_sources import DataSource
 from training.utils import (
+    _compute_data_fingerprint,
+    _compute_feature_statistics,
+    _get_git_commit,
     create_sliding_windows,
     evaluate_model,
     find_contiguous_segments,
     get_device,
     save_trained_model,
     train_model,
+    update_central_manifest,
 )
 
 logger = logging.getLogger("training.pipeline")
@@ -124,6 +128,7 @@ class PipelineResult:
     model_dir: Path
     stage_results: List[StageResult]
     preprocessing_report: PreprocessingReport = field(default_factory=PreprocessingReport)
+    version: str = ""
 
 
 class PipelineError(Exception):
@@ -195,6 +200,12 @@ class TrainingPipeline:
         self._on_stage_enter_callbacks: List[StageCallback] = []
         self._on_stage_complete_callbacks: List[StageCallback] = []
         self._on_error_callbacks: List[ErrorCallback] = []
+
+        # Data provenance tracking
+        self._data_fingerprint: Optional[str] = None
+        self._feature_stats: Optional[Dict] = None
+        self._target_stats: Optional[Dict] = None
+        self._version: str = ""
 
         # Inter-stage data (populated as stages execute)
         self._df = None
@@ -386,7 +397,11 @@ class TrainingPipeline:
                 f"(started with {n_raw}, need at least {self._min_samples})"
             )
 
-        extra = {"rows_before_cleaning": n_raw, "rows_after_cleaning": n_clean}
+        # Data fingerprint — SHA256 of cleaned data before feature engineering
+        self._data_fingerprint = _compute_data_fingerprint(self._df)
+
+        extra = {"rows_before_cleaning": n_raw, "rows_after_cleaning": n_clean,
+                 "data_fingerprint": self._data_fingerprint}
         if has_timestamps and n_clean > 0:
             extra["date_range_start"] = str(self._df.index.min())
             extra["date_range_end"] = str(self._df.index.max())
@@ -419,6 +434,19 @@ class TrainingPipeline:
         # Store for next stage
         self._features_enhanced = features_enhanced
         self._targets = targets
+
+        # Compute statistics for manifest
+        self._feature_stats = _compute_feature_statistics(
+            features_enhanced, profile.all_feature_names
+        )
+        self._target_stats = {
+            target_col: {
+                "mean": float(np.mean(targets)),
+                "std": float(np.std(targets)),
+                "min": float(np.min(targets)),
+                "max": float(np.max(targets)),
+            }
+        }
 
         return StageResult(
             state=PipelineState.FEATURE_ENGINEERING,
@@ -586,6 +614,10 @@ class TrainingPipeline:
             num_features=self._sensor_profile.total_features,
         )
 
+        if hasattr(self._model, 'kl_loss'):
+            bnn_cfg = settings.get_model_config('bnn')
+            self._model._kl_weight = bnn_cfg.get('kl_weight', 1.0)
+
         tcfg = settings.get_training_config()
         self._tb_log_dir = self._resolve_tensorboard_dir()
         histogram_freq = tcfg.get("tensorboard_histogram_freq", 50)
@@ -685,6 +717,9 @@ class TrainingPipeline:
         base = Path(settings.TRAINED_MODELS_BASE)
         self._model_dir = self._output_dir if self._output_dir else base / self._model_type
 
+        # Build data provenance manifest
+        manifest = self._build_data_manifest()
+
         save_trained_model(
             model=self._model,
             feature_scaler=self._feature_scaler,
@@ -697,7 +732,27 @@ class TrainingPipeline:
             model_dir=str(self._model_dir),
             metrics=self._metrics,
             training_history=self._training_history,
+            data_manifest=manifest,
         )
+
+        # Update central manifest and get version
+        import pandas as pd
+
+        run_entry = {
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "data_fingerprint": self._data_fingerprint,
+            "model_dir": str(self._model_dir),
+            "metrics": {k: float(v) for k, v in self._metrics.items()},
+            "git_commit": manifest["git_commit"],
+        }
+        self._version = update_central_manifest(self._model_type, run_entry)
+        manifest["version"] = self._version
+
+        # Re-save manifest with version included
+        from training.utils import save_data_manifest
+        save_data_manifest(manifest, self._model_dir)
+
+        logger.info("Registered as %s in central manifest", self._version)
 
         artifacts = []
         if self._model_dir.exists():
@@ -708,9 +763,65 @@ class TrainingPipeline:
             duration_seconds=time.monotonic() - t0,
             extra={
                 "model_dir": str(self._model_dir),
+                "version": self._version,
                 "artifacts": artifacts,
             },
         )
+
+    def _build_data_manifest(self) -> dict:
+        """Assemble the full data provenance manifest from pipeline state."""
+        import pandas as pd
+
+        # Serialize stage results
+        stages = []
+        for sr in self._stage_results:
+            stages.append({
+                "stage": sr.state.value,
+                "duration_seconds": round(sr.duration_seconds, 3),
+                "rows_in": sr.rows_in,
+                "rows_out": sr.rows_out,
+                "columns": sr.columns,
+                "extra": sr.extra,
+            })
+
+        # Serialize preprocessing issues
+        issues = []
+        for issue in self._report.issues:
+            issues.append({
+                "severity": issue.severity.value,
+                "stage": issue.stage,
+                "message": issue.message,
+                "rows_affected": issue.rows_affected,
+            })
+
+        # Config snapshot
+        config_snapshot = {
+            "model_type": self._model_type,
+            "epochs": self._epochs,
+            "window_size": self._window_size,
+            "batch_size": self._batch_size,
+            "learning_rate": self._learning_rate,
+            "test_size": self._test_size,
+            "random_state": self._random_state,
+            "min_samples": self._min_samples,
+            "lr_scheduler_patience": self._lr_scheduler_patience,
+            "lr_scheduler_factor": self._lr_scheduler_factor,
+            "sensor_type": self._sensor_profile.name,
+            "iaq_standard": self._iaq_standard.name,
+        }
+
+        return {
+            "created_at": pd.Timestamp.now().isoformat(),
+            "git_commit": _get_git_commit(),
+            "data_fingerprint": self._data_fingerprint,
+            "data_source": self._source.metadata,
+            "config": config_snapshot,
+            "feature_statistics": self._feature_stats,
+            "target_statistics": self._target_stats,
+            "stages": stages,
+            "preprocessing_issues": issues,
+            "metrics": {k: float(v) for k, v in self._metrics.items()} if self._metrics else {},
+        }
 
     # ── Orchestrator ───────────────────────────────────────────────────
 
@@ -755,4 +866,5 @@ class TrainingPipeline:
             model_dir=self._model_dir,
             stage_results=list(self._stage_results),
             preprocessing_report=self._report,
+            version=self._version,
         )

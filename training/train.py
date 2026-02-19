@@ -1,6 +1,8 @@
 # training/train.py
+from typing import Optional
+
 from training.data_sources import DataSource, SyntheticSource
-from training.pipeline import TrainingPipeline, PipelineError
+from training.pipeline import TrainingPipeline, PipelineError, PipelineResult
 
 
 def train_single_model(
@@ -9,7 +11,7 @@ def train_single_model(
     window_size: int = 10,
     num_records: int = None,
     data_source: DataSource = None,
-) -> bool:
+) -> Optional[PipelineResult]:
     """Train a single model using the TrainingPipeline.
 
     Args:
@@ -20,7 +22,7 @@ def train_single_model(
         data_source: Data source to use. Defaults to SyntheticSource.
 
     Returns:
-        True on success, False on failure.
+        PipelineResult on success, None on failure.
     """
     try:
         if data_source is None:
@@ -33,12 +35,11 @@ def train_single_model(
             epochs=epochs,
             window_size=window_size,
         )
-        pipeline.orchestrate()
-        return True
+        return pipeline.orchestrate()
 
     except PipelineError as e:
         print(f"Error training {model_type}: {e}")
-        return False
+        return None
     except Exception as e:
         print(f"Error training {model_type}: {e}")
-        return False
+        return None

@@ -7,7 +7,7 @@ import torch
 import pickle
 import json
 import os
-from app.models import MLPRegressor, CNNRegressor, KANRegressor, LSTMRegressor
+from app.models import MLPRegressor, CNNRegressor, KANRegressor, LSTMRegressor, BNNRegressor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import numpy as np
 
@@ -31,6 +31,9 @@ def create_dummy_model(model_type="mlp", model_dir="trained_models/mlp"):
     elif model_type == "lstm":
         model = LSTMRegressor(window_size=window_size, num_features=num_features)
         print(f"Creating LSTM model...")
+    elif model_type == "bnn":
+        model = BNNRegressor(input_dim, hidden_dims=[64, 32, 16], prior_sigma=1.0)
+        print(f"Creating BNN model...")
     else:  # kan
         model = KANRegressor(input_dim, hidden_dims=[32, 16])
         print(f"Creating KAN model...")
@@ -76,6 +79,9 @@ def create_dummy_model(model_type="mlp", model_dir="trained_models/mlp"):
     elif model_type == "cnn":
         checkpoint["num_filters"] = [64, 128, 256]
         checkpoint["kernel_sizes"] = [3, 3, 3]
+    elif model_type == "bnn":
+        checkpoint["hidden_dims"] = [64, 32, 16]
+        checkpoint["prior_sigma"] = 1.0
     else:  # kan
         checkpoint["hidden_dims"] = [32, 16]
 
@@ -93,6 +99,7 @@ if __name__ == "__main__":
     create_dummy_model("cnn", "../trained_models/cnn")
     create_dummy_model("kan", "../trained_models/kan")
     create_dummy_model("lstm", "../trained_models/lstm")
+    create_dummy_model("bnn", "../trained_models/bnn")
     print()
     print("=" * 60)
     print("✓ All dummy models created successfully!")
@@ -102,6 +109,7 @@ if __name__ == "__main__":
     print("  • CNN - Convolutional neural network for temporal patterns")
     print("  • LSTM - Long Short Term Memory")
     print("  • KAN - Kolmogorov-Arnold Network")
+    print("  • BNN - Bayesian Neural Network")
     print()
     print("⚠️  WARNING: These models produce RANDOM predictions!")
     print("⚠️  Train real models with actual BSEC data before production!")

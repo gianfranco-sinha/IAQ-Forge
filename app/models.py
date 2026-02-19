@@ -9,6 +9,100 @@ from app.kan import KAN
 
 logger = logging.getLogger(__name__)
 
+
+class BayesianLinear(nn.Module):
+    """Linear layer with learned weight distributions for Bayes by Backprop.
+
+    Each forward pass samples weights from N(mu, softplus(rho)), giving
+    intrinsic epistemic uncertainty without dropout.
+    """
+
+    def __init__(self, in_features: int, out_features: int, prior_sigma: float = 1.0):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.prior_sigma = prior_sigma
+
+        # Learnable parameters
+        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
+        self.weight_rho = nn.Parameter(torch.full((out_features, in_features), -3.0))
+        self.bias_mu = nn.Parameter(torch.empty(out_features))
+        self.bias_rho = nn.Parameter(torch.full((out_features,), -3.0))
+
+        # Kaiming init for mu
+        nn.init.kaiming_normal_(self.weight_mu, nonlinearity="relu")
+        nn.init.zeros_(self.bias_mu)
+
+        # KL divergence accumulated during forward pass
+        self._kl: torch.Tensor = torch.tensor(0.0)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        weight_sigma = torch.log1p(torch.exp(self.weight_rho))  # softplus
+        bias_sigma = torch.log1p(torch.exp(self.bias_rho))
+
+        # Reparameterization trick
+        weight = self.weight_mu + weight_sigma * torch.randn_like(weight_sigma)
+        bias = self.bias_mu + bias_sigma * torch.randn_like(bias_sigma)
+
+        # Analytical KL divergence vs N(0, prior_sigma)
+        self._kl = self._kl_divergence(
+            self.weight_mu, weight_sigma, self.prior_sigma
+        ) + self._kl_divergence(
+            self.bias_mu, bias_sigma, self.prior_sigma
+        )
+
+        return nn.functional.linear(x, weight, bias)
+
+    @staticmethod
+    def _kl_divergence(mu, sigma, prior_sigma):
+        """KL(N(mu, sigma^2) || N(0, prior_sigma^2))."""
+        prior_var = prior_sigma ** 2
+        return 0.5 * torch.sum(
+            sigma ** 2 / prior_var + mu ** 2 / prior_var - 1.0 - 2.0 * torch.log(sigma / prior_sigma)
+        )
+
+    @property
+    def kl_divergence(self) -> torch.Tensor:
+        return self._kl
+
+
+class BNNRegressor(nn.Module):
+    """Bayesian Neural Network for IAQ prediction.
+
+    Same architecture as MLPRegressor but with BayesianLinear layers instead
+    of nn.Linear.  No Dropout — uncertainty comes from weight sampling.
+    """
+
+    def __init__(self, input_dim, hidden_dims=None, prior_sigma=1.0):
+        super().__init__()
+        if hidden_dims is None:
+            hidden_dims = [64, 32, 16]
+
+        self.prior_sigma = prior_sigma
+        layers = []
+        prev_dim = input_dim
+
+        for hidden_dim in hidden_dims:
+            layers.append(BayesianLinear(prev_dim, hidden_dim, prior_sigma))
+            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
+            prev_dim = hidden_dim
+
+        self._hidden = nn.Sequential(*layers)
+        self._head = BayesianLinear(prev_dim, 1, prior_sigma)
+
+    def forward(self, x):
+        return self._head(self._hidden(x))
+
+    def kl_loss(self) -> torch.Tensor:
+        """Sum KL divergence from all BayesianLinear layers."""
+        total = torch.tensor(0.0, device=next(self.parameters()).device)
+        for m in self.modules():
+            if isinstance(m, BayesianLinear):
+                total = total + m.kl_divergence
+        return total
+
+
 class MLPRegressor(nn.Module):
     """MLP for IAQ prediction (Baseline Model)."""
 
@@ -184,6 +278,7 @@ MODEL_REGISTRY = {
     "lstm": LSTMRegressor,
     "cnn": CNNRegressor,
     "kan": KANRegressor,
+    "bnn": BNNRegressor,
 }
 
 
@@ -233,6 +328,12 @@ def build_model(model_type: str, window_size: int = 10, num_features: int = 6) -
             num_filters=cfg.get("num_filters", [64, 128, 256]),
             kernel_sizes=cfg.get("kernel_sizes", [3, 3, 3]),
             dropout=cfg.get("dropout", 0.3),
+        )
+    elif model_type == "bnn":
+        return ModelCls(
+            input_dim=window_size * num_features,
+            hidden_dims=cfg.get("hidden_dims", [64, 32, 16]),
+            prior_sigma=cfg.get("prior_sigma", 1.0),
         )
 
     return ModelCls(**cfg)
@@ -297,14 +398,16 @@ class IAQPredictor:
             model_params = self.config.get("model_params", {})
 
             if isinstance(model_data, dict):
-                if self.model_type in ["mlp", "kan"]:
-                    # MLP and KAN specific parameters
+                if self.model_type in ["mlp", "kan", "bnn"]:
+                    # MLP, KAN, and BNN specific parameters
                     if "input_dim" in model_data:
                         model_params["input_dim"] = model_data["input_dim"]
                     if "hidden_dims" in model_data:
                         model_params["hidden_dims"] = model_data["hidden_dims"]
                     if "dropout" in model_data:
                         model_params["dropout"] = model_data["dropout"]
+                    if "prior_sigma" in model_data:
+                        model_params["prior_sigma"] = model_data["prior_sigma"]
                 elif self.model_type in ["lstm", "cnn"]:
                     # LSTM and CNN specific parameters
                     if "window_size" in model_data:
@@ -315,7 +418,7 @@ class IAQPredictor:
             num_features = self.sensor_profile.total_features
 
             # Add required parameters based on model type
-            if self.model_type in ["mlp", "kan"]:
+            if self.model_type in ["mlp", "kan", "bnn"]:
                 if "input_dim" not in model_params:
                     model_params["input_dim"] = self.window_size * num_features
             elif self.model_type in ["lstm", "cnn"]:
@@ -357,15 +460,65 @@ class IAQPredictor:
             logger.error(f"Failed to load model: {e}")
             return False
 
-    def predict(self, readings: dict = None, **kwargs) -> dict:
+    def _forward_pass_mc(self, features_tensor, n_samples=10):
+        """Run n_samples stochastic forward passes.
+
+        Operates on an already-prepared tensor — does NOT touch the buffer.
+        Returns array of shape (n_samples,) with IAQ-scale predictions.
+
+        - BNN: each forward pass samples different weights (intrinsic stochasticity).
+        - Models with Dropout: MC dropout (enable dropout in eval).
+        - Deterministic models (e.g. KAN): single prediction repeated.
+        """
+        is_bnn = isinstance(self.model, BNNRegressor)
+        has_dropout = any(
+            isinstance(m, nn.Dropout) for m in self.model.modules()
+        )
+
+        if not has_dropout and not is_bnn:
+            with torch.no_grad():
+                pred = self.model(features_tensor)
+                scaled = pred.cpu().numpy()
+            if self.target_scaler is not None:
+                val = float(self.target_scaler.inverse_transform(scaled)[0, 0])
+            else:
+                val = float(scaled[0, 0])
+            return np.full(n_samples, val)
+
+        # For BNN: forward passes are stochastic even in eval mode.
+        # For MC dropout: enable only Dropout layers (keep BatchNorm in eval).
+        if has_dropout:
+            for m in self.model.modules():
+                if isinstance(m, nn.Dropout):
+                    m.train()
+
+        predictions = []
+        for _ in range(n_samples):
+            with torch.no_grad():
+                pred = self.model(features_tensor)
+                scaled = pred.cpu().numpy()
+            if self.target_scaler is not None:
+                val = float(self.target_scaler.inverse_transform(scaled)[0, 0])
+            else:
+                val = float(scaled[0, 0])
+            predictions.append(val)
+
+        self.model.eval()
+        return np.array(predictions)
+
+    def predict(self, readings: dict = None, n_mc_samples: int = 1,
+                **kwargs) -> dict:
         """Predict IAQ from sensor readings.
 
         Accepts either a readings dict or keyword arguments for backward
         compatibility (temperature, rel_humidity, pressure, voc_resistance).
 
+        Args:
+            readings: sensor readings dict.
+            n_mc_samples: number of MC dropout forward passes (1 = deterministic).
+
         Flow: engineer features → buffer → flatten → scale → forward → inverse-scale → clamp → categorize
         """
-        # Backward-compat: accept keyword args and wrap into readings dict
         if readings is None:
             readings = kwargs
 
@@ -392,7 +545,7 @@ class IAQPredictor:
                     "message": f"Collecting data... {len(self.buffer)}/{self.window_size}",
                 }
 
-            # Step 3: flatten window → scale → predict → inverse-scale
+            # Step 3: flatten window → scale
             window_flat = np.array(self.buffer).flatten().reshape(1, -1)
 
             if self.feature_scaler is not None:
@@ -400,22 +553,60 @@ class IAQPredictor:
 
             features_tensor = torch.FloatTensor(window_flat).to(self.device)
 
-            with torch.no_grad():
-                prediction = self.model(features_tensor)
-                scaled_value = prediction.cpu().numpy()
-
-            if self.target_scaler is not None:
-                iaq_value = float(
-                    self.target_scaler.inverse_transform(scaled_value)[0, 0]
+            # Step 4: forward pass (with optional MC dropout)
+            uncertainty_info = None
+            if n_mc_samples > 1:
+                mc_predictions = self._forward_pass_mc(
+                    features_tensor, n_mc_samples
                 )
+                iaq_value = float(np.mean(mc_predictions))
+                is_bnn = isinstance(self.model, BNNRegressor)
+                has_dropout = any(
+                    isinstance(m, nn.Dropout) for m in self.model.modules()
+                )
+                if is_bnn:
+                    method = "weight_sampling"
+                elif has_dropout:
+                    method = "mc_dropout"
+                else:
+                    method = "deterministic"
+                uncertainty_info = {
+                    "std": float(np.std(mc_predictions)),
+                    "ci_lower": float(np.percentile(mc_predictions, 2.5)),
+                    "ci_upper": float(np.percentile(mc_predictions, 97.5)),
+                    "method": method,
+                }
             else:
-                iaq_value = float(scaled_value[0, 0])
+                with torch.no_grad():
+                    prediction = self.model(features_tensor)
+                    scaled_value = prediction.cpu().numpy()
+                if self.target_scaler is not None:
+                    iaq_value = float(
+                        self.target_scaler.inverse_transform(scaled_value)[0, 0]
+                    )
+                else:
+                    iaq_value = float(scaled_value[0, 0])
 
-            # Standard-driven clamp and categorize
+            # Step 5: standard-driven clamp and categorize
             iaq_value = self.iaq_standard.clamp(iaq_value)
             category = self.iaq_standard.categorize(iaq_value)
 
-            return {
+            # Build engineered features dict for observation
+            eng_names = self.sensor_profile.engineered_feature_names
+            eng_values = features[-len(eng_names):] if eng_names else []
+            eng_dict = dict(zip(eng_names, [float(v) for v in eng_values]))
+
+            # Build predicted block
+            predicted = {
+                "mean": iaq_value,
+                "category": category,
+                "iaq_standard": self.iaq_standard.name,
+            }
+            if uncertainty_info is not None:
+                predicted["uncertainty"] = uncertainty_info
+
+            result = {
+                # Backward-compatible top-level fields
                 "iaq": iaq_value,
                 "category": category,
                 "status": "ready",
@@ -423,7 +614,25 @@ class IAQPredictor:
                 "raw_inputs": readings,
                 "buffer_size": len(self.buffer),
                 "required": self.window_size,
+                # Structured inference fields
+                "observation": {
+                    "sensor_type": self.sensor_profile.name,
+                    "readings": readings,
+                    "engineered_features": eng_dict or None,
+                },
+                "predicted": predicted,
+                "inference": {
+                    "model_type": self.model_type,
+                    "window_size": self.window_size,
+                    "buffer_size": len(self.buffer),
+                    "uncertainty_method": (
+                        uncertainty_info["method"] if uncertainty_info else None
+                    ),
+                    "mc_samples": n_mc_samples if n_mc_samples > 1 else None,
+                },
             }
+
+            return result
 
         except Exception as e:
             return {

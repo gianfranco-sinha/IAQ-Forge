@@ -15,6 +15,9 @@ class SensorReading(BaseModel):
     readings: Optional[Dict[str, float]] = Field(
         None, description="Sensor readings keyed by feature name"
     )
+    iaq_actual: Optional[float] = Field(
+        None, description="Actual IAQ score from sensor (e.g. BSEC IAQ)"
+    )
     timestamp: Optional[str] = Field(None, description="ISO timestamp")
 
     # Legacy BME680 fields — populated into ``readings`` if present
@@ -39,8 +42,56 @@ class SensorReading(BaseModel):
         return self.readings or {}
 
 
+# ---------------------------------------------------------------------------
+# Bayesian inference response structure
+# ---------------------------------------------------------------------------
+
+class Observation(BaseModel):
+    """Direct sensor measurements — the evidence conditioning our inference."""
+    sensor_type: str
+    readings: Dict[str, float]
+    engineered_features: Optional[Dict[str, float]] = None
+    timestamp: Optional[str] = None
+
+
+class UncertaintyEstimate(BaseModel):
+    """Quantified uncertainty around the predicted value."""
+    std: float
+    ci_lower: float = Field(description="Lower bound of 95% credible interval")
+    ci_upper: float = Field(description="Upper bound of 95% credible interval")
+    method: str = Field(description="mc_dropout | weight_sampling | history_std | deterministic")
+
+
+class Predicted(BaseModel):
+    """The model's predicted value for the latent IAQ variable given the evidence."""
+    mean: float
+    category: str
+    uncertainty: Optional[UncertaintyEstimate] = None
+    iaq_standard: str = "bsec"
+
+
+class Prior(BaseModel):
+    """Belief about IAQ before this observation — from recent history or training distribution."""
+    mean: float
+    std: float
+    source: str = Field(description="history_window | training_distribution")
+    n_observations: int
+
+
+class InferenceMetadata(BaseModel):
+    """How the inference was performed."""
+    model_config = ConfigDict(protected_namespaces=())
+    model_type: str
+    window_size: int
+    buffer_size: int
+    uncertainty_method: Optional[str] = None
+    mc_samples: Optional[int] = None
+
+
 class IAQResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
+
+    # Backward-compatible top-level fields
     iaq: Optional[float] = Field(None, description="Predicted IAQ index")
     category: Optional[str] = Field(None, description="Air quality category")
     status: str = Field(..., description="Prediction status")
@@ -49,6 +100,12 @@ class IAQResponse(BaseModel):
     buffer_size: Optional[int] = None
     required: Optional[int] = None
     message: Optional[str] = None
+
+    # Structured inference fields
+    observation: Optional[Observation] = None
+    predicted: Optional[Predicted] = None
+    prior: Optional[Prior] = None
+    inference: Optional[InferenceMetadata] = None
 
 
 class ModelInfo(BaseModel):

@@ -1,0 +1,46 @@
+{
+  "runs": [
+    {
+      "timestamp": "2026-02-18T22:57:09.415922",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 116.26775913872443,
+        "rmse": 137.63158067051998,
+        "r2": -0.09645619813146444
+      },
+      "git_commit": "9afac2c",
+      "version": "mlp-v1",
+      "model_type": "mlp",
+      "is_active": false
+    },
+    {
+      "timestamp": "2026-02-18T22:57:34.059036",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 114.399784228907,
+        "rmse": 137.5937895507488,
+        "r2": -0.09585414708360518
+      },
+      "git_commit": "9afac2c",
+      "version": "mlp-v2",
+      "model_type": "mlp",
+      "is_active": true
+    },
+    {
+      "timestamp": "2026-02-18T22:58:01.842964",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/kan",
+      "metrics": {
+        "mae": 135.03838084196772,
+        "rmse": 171.2944120508679,
+        "r2": -0.6984058729179048
+      },
+      "git_commit": "9afac2c",
+      "version": "kan-v1",
+      "model_type": "kan",
+      "is_active": true
+    }
+  ]
+}

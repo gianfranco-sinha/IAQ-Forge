@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     KAN_MODEL_PATH: str = "trained_models/kan"
     CNN_MODEL_PATH: str = "trained_models/cnn"
     LSTM_MODEL_PATH: str = "trained_models/lstm"
+    BNN_MODEL_PATH: str = "trained_models/bnn"
     WINDOW_SIZE: int = 10
 
     # YAML configuration paths
@@ -90,6 +91,12 @@ class Settings(BaseSettings):
                 "window_size": 10,
                 "num_features": 4,
                 "fc_layers": [128, 64],
+            },
+            "bnn": {
+                "hidden_dims": [64, 32, 16],
+                "prior_sigma": 1.0,
+                "kl_weight": 1.0,
+                "input_dim": 6,
             },
         }
 

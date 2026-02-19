@@ -26,15 +26,54 @@ class InferenceEngine:
         self.prediction_history = []
         self.max_history = 1000
 
-    def predict_single(self, readings: dict = None, **kwargs) -> Dict:
-        """Single prediction with enhanced metadata.
+    def _compute_prior(self) -> Optional[dict]:
+        """Compute a prior belief about IAQ from recent history or training distribution."""
+        if len(self.prediction_history) >= 5:
+            window = min(20, len(self.prediction_history))
+            recent_iaqs = [h['iaq'] for h in self.prediction_history[-window:]]
+            return {
+                "mean": float(np.mean(recent_iaqs)),
+                "std": float(np.std(recent_iaqs)),
+                "source": "history_window",
+                "n_observations": window,
+            }
 
-        Accepts a readings dict or keyword args for backward compatibility.
+        if self.predictor.target_scaler is not None:
+            scaler = self.predictor.target_scaler
+            if hasattr(scaler, 'data_min_') and hasattr(scaler, 'data_max_'):
+                lo = float(scaler.data_min_[0])
+                hi = float(scaler.data_max_[0])
+                return {
+                    "mean": (lo + hi) / 2.0,
+                    "std": (hi - lo) / 4.0,
+                    "source": "training_distribution",
+                    "n_observations": 0,
+                }
+
+        return None
+
+    def predict_single(self, readings: dict = None,
+                       include_uncertainty: bool = True,
+                       n_mc_samples: int = 10, **kwargs) -> Dict:
+        """Single prediction with prior, uncertainty, and structured output.
+
+        Args:
+            readings: sensor readings dict.
+            include_uncertainty: whether to run MC dropout for uncertainty.
+            n_mc_samples: number of MC dropout forward passes.
         """
         if readings is None:
             readings = kwargs
 
-        result = self.predictor.predict(readings)
+        # Compute prior BEFORE the new prediction
+        prior = self._compute_prior()
+
+        mc = n_mc_samples if include_uncertainty else 1
+        result = self.predictor.predict(readings, n_mc_samples=mc)
+
+        # Attach prior
+        if prior is not None:
+            result["prior"] = prior
 
         # Add to history if prediction was successful
         if result.get('status') == 'ready' and result.get('iaq') is not None:
@@ -42,9 +81,22 @@ class InferenceEngine:
             history_entry['iaq'] = result['iaq']
             self.prediction_history.append(history_entry)
 
-            # Trim history if too large
             if len(self.prediction_history) > self.max_history:
                 self.prediction_history.pop(0)
+
+            # Supplement with history-based uncertainty for models without dropout
+            predicted = result.get("predicted", {})
+            unc = predicted.get("uncertainty", {})
+            if (unc.get("method") == "deterministic"
+                    and len(self.prediction_history) >= 10):
+                recent_iaqs = [h['iaq'] for h in self.prediction_history[-20:]]
+                result["predicted"]["uncertainty"] = {
+                    "std": float(np.std(recent_iaqs)),
+                    "ci_lower": float(np.percentile(recent_iaqs, 2.5)),
+                    "ci_upper": float(np.percentile(recent_iaqs, 97.5)),
+                    "method": "history_std",
+                }
+                result["inference"]["uncertainty_method"] = "history_std"
 
             # Add statistics if we have history
             if len(self.prediction_history) >= 10:
@@ -65,49 +117,17 @@ class InferenceEngine:
 
     def predict_with_uncertainty(self, readings: dict = None,
                                  n_samples: int = 10, **kwargs) -> Dict:
-        """Prediction with uncertainty estimation using Monte Carlo dropout.
+        """Prediction with uncertainty estimation.
 
-        Accepts a readings dict or keyword args for backward compatibility.
+        Delegates to predict_single with MC dropout enabled.
+        Works for all model types — models without dropout get history-based
+        uncertainty instead.
         """
-        if readings is None:
-            readings = kwargs
-
-        # Enable dropout during inference for uncertainty estimation
-        if self.predictor.model_type == 'mlp':
-            self.predictor.model.train()  # Enables dropout
-
-        predictions = []
-
-        for _ in range(n_samples):
-            result = self.predictor.predict(readings)
-            if result.get('iaq') is not None:
-                predictions.append(result['iaq'])
-
-        # Back to eval mode
-        self.predictor.model.eval()
-
-        if not predictions:
-            return {
-                'iaq': None,
-                'status': 'error',
-                'message': 'Could not generate predictions'
-            }
-
-        predictions = np.array(predictions)
-
-        return {
-            'iaq': float(np.mean(predictions)),
-            'uncertainty': {
-                'std': float(np.std(predictions)),
-                'confidence_95_lower': float(np.percentile(predictions, 2.5)),
-                'confidence_95_upper': float(np.percentile(predictions, 97.5)),
-                'min': float(np.min(predictions)),
-                'max': float(np.max(predictions))
-            },
-            'status': 'ready',
-            'model_type': self.predictor.model_type,
-            'n_samples': n_samples
-        }
+        return self.predict_single(
+            readings=readings or kwargs,
+            include_uncertainty=True,
+            n_mc_samples=n_samples,
+        )
 
     def get_statistics(self) -> Dict:
         """Get statistics from prediction history."""

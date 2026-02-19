@@ -30,6 +30,7 @@ MODEL_PATHS = {
     "kan": settings.KAN_MODEL_PATH,
     "lstm": settings.LSTM_MODEL_PATH,
     "cnn": settings.CNN_MODEL_PATH,
+    "bnn": settings.BNN_MODEL_PATH,
 }
 
 
@@ -105,10 +106,7 @@ async def health_check():
     """Health check endpoint."""
     return HealthResponse(
         status="healthy" if predictors else "degraded",
-        models_available={
-            'mlp': 'mlp' in predictors,
-            'kan': 'kan' in predictors
-        },
+        models_available={m: m in predictors for m in MODEL_PATHS},
         active_model=active_model
     )
 
@@ -194,7 +192,8 @@ async def predict_iaq(reading: SensorReading):
                 timestamp=timestamp,
                 readings=sensor_readings,
                 iaq_predicted=result['iaq'],
-                model_type=active_model
+                model_type=active_model,
+                iaq_actual=reading.iaq_actual,
             )
 
         return IAQResponse(**result)
@@ -206,17 +205,15 @@ async def predict_iaq(reading: SensorReading):
 
 @app.post("/predict/uncertainty")
 async def predict_with_uncertainty(reading: SensorReading):
-    """Predict IAQ with uncertainty estimation (MLP only)."""
+    """Predict IAQ with uncertainty estimation (all model types).
+
+    Models with dropout layers (MLP, LSTM, CNN) use MC dropout.
+    Models without dropout (KAN) use history-based uncertainty.
+    """
     if active_model not in inference_engines:
         raise HTTPException(
             status_code=503,
             detail=f"Active model '{active_model}' not available"
-        )
-
-    if active_model != 'mlp':
-        raise HTTPException(
-            status_code=400,
-            detail="Uncertainty estimation only available for MLP model"
         )
 
     try:
@@ -224,7 +221,7 @@ async def predict_with_uncertainty(reading: SensorReading):
 
         result = engine.predict_with_uncertainty(
             reading.get_readings(),
-            n_samples=10
+            n_samples=20
         )
 
         return result

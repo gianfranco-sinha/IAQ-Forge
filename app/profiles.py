@@ -30,6 +30,17 @@ class SensorProfile(ABC):
         ...
 
     @property
+    def field_descriptions(self) -> Dict[str, Dict[str, str]]:
+        """Per-feature metadata: unit, physical meaning, and example value.
+
+        Override in subclass. Keys must match ``raw_features``.
+        Example::
+
+            {"temperature": {"unit": "°C", "description": "Ambient temperature", "example": "25.0"}}
+        """
+        return {}
+
+    @property
     def quality_column(self) -> Optional[str]:
         """Column name for data-quality filtering (e.g. 'iaq_accuracy').
         Return None if the sensor has no quality indicator."""

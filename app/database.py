@@ -209,6 +209,7 @@ class InfluxDBManager:
         iaq_predicted,
         model_type,
         readings: dict = None,
+        iaq_actual: float = None,
         # Legacy kwargs for backward compatibility
         temperature=None,
         rel_humidity=None,
@@ -246,6 +247,8 @@ class InfluxDBManager:
         try:
             fields = {k: float(v) for k, v in readings.items()}
             fields["iaq_predicted"] = float(iaq_predicted)
+            if iaq_actual is not None:
+                fields["iaq_actual"] = float(iaq_actual)
 
             # Attempt write based on version
             if self.version == "2.x":

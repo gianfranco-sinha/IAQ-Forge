@@ -35,6 +35,11 @@ class DataSource(ABC):
         """Human-readable label for logging."""
         ...
 
+    @property
+    def metadata(self) -> dict:
+        """Source-specific metadata for data provenance tracking."""
+        return {}
+
 
 class InfluxDBSource(DataSource):
     """Fetches training data from InfluxDB."""
@@ -117,6 +122,17 @@ class InfluxDBSource(DataSource):
 
         return df
 
+    @property
+    def metadata(self) -> dict:
+        return {
+            "source_type": "influxdb",
+            "measurement": self.measurement,
+            "hours_back": self.hours_back,
+            "min_iaq_accuracy": self.min_iaq_accuracy,
+            "host": settings.INFLUX_HOST,
+            "database": settings.INFLUX_DATABASE,
+        }
+
     def close(self) -> None:
         """Close the InfluxDB client connection."""
         if self._client is not None:
@@ -134,6 +150,14 @@ class SyntheticSource(DataSource):
     @property
     def name(self) -> str:
         return f"SyntheticSource({self.num_samples} samples)"
+
+    @property
+    def metadata(self) -> dict:
+        return {
+            "source_type": "synthetic",
+            "num_samples": self.num_samples,
+            "seed": self.seed,
+        }
 
     def validate(self) -> None:
         """No-op — synthetic data is always available."""

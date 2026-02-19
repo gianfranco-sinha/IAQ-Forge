@@ -1,7 +1,9 @@
 from pathlib import Path
+import hashlib
 import json
 import os
 import pickle
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -130,6 +132,9 @@ def train_model(
             optimizer.zero_grad()
             predictions = model(batch_X)
             loss = criterion(predictions, batch_y)
+            if hasattr(model, 'kl_loss'):
+                kl_weight = getattr(model, '_kl_weight', 1.0)
+                loss = loss + kl_weight * model.kl_loss() / len(train_loader.dataset)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -144,6 +149,9 @@ def train_model(
                 batch_X, batch_y = batch_X.to(device), batch_y.to(device)
                 predictions = model(batch_X)
                 loss = criterion(predictions, batch_y)
+                if hasattr(model, 'kl_loss'):
+                    kl_weight = getattr(model, '_kl_weight', 1.0)
+                    loss = loss + kl_weight * model.kl_loss() / len(val_loader.dataset)
                 val_loss += loss.item()
 
         val_loss /= len(val_loader)
@@ -219,12 +227,98 @@ def save_training_history(model_type, epochs, train_losses, val_losses, metrics,
         json.dump(history, f, indent=2)
 
 
+def _compute_data_fingerprint(df: pd.DataFrame) -> str:
+    """SHA256 of cleaned DataFrame for deterministic data identification.
+
+    Columns sorted alphabetically + CSV serialization for determinism.
+    Same data → same hash.
+    """
+    sorted_df = df[sorted(df.columns)]
+    csv_bytes = sorted_df.to_csv(index=False).encode("utf-8")
+    return hashlib.sha256(csv_bytes).hexdigest()
+
+
+def _get_git_commit() -> str:
+    """Return short git hash of HEAD, or 'unknown' if not in a repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _compute_feature_statistics(features: np.ndarray, feature_names: list) -> dict:
+    """Per-feature mean/std/min/max dict."""
+    stats = {}
+    for i, name in enumerate(feature_names):
+        col = features[:, i] if features.ndim > 1 else features
+        stats[name] = {
+            "mean": float(np.mean(col)),
+            "std": float(np.std(col)),
+            "min": float(np.min(col)),
+            "max": float(np.max(col)),
+        }
+    return stats
+
+
+def save_data_manifest(manifest: dict, model_dir) -> None:
+    """Write data_manifest.json to the model directory."""
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    with open(model_dir / "data_manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2, default=str)
+
+
+def update_central_manifest(model_type: str, run_entry: dict) -> str:
+    """Read/create MANIFEST.json, increment version, append run, return version string.
+
+    Previous runs of the same model_type are marked is_active: false.
+    """
+    from app.config import settings
+
+    manifest_path = Path(settings.TRAINED_MODELS_BASE) / "MANIFEST.json"
+
+    if manifest_path.exists():
+        with open(manifest_path) as f:
+            central = json.load(f)
+    else:
+        central = {"runs": []}
+
+    # Find max version for this model type
+    max_version = 0
+    for run in central["runs"]:
+        if run.get("model_type") == model_type:
+            run["is_active"] = False
+            v = run.get("version", "")
+            if v.startswith(f"{model_type}-v"):
+                try:
+                    max_version = max(max_version, int(v.split("-v")[1]))
+                except ValueError:
+                    pass
+
+    new_version = f"{model_type}-v{max_version + 1}"
+    run_entry["version"] = new_version
+    run_entry["model_type"] = model_type
+    run_entry["is_active"] = True
+    central["runs"].append(run_entry)
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(manifest_path, "w") as f:
+        json.dump(central, f, indent=2, default=str)
+
+    return new_version
+
+
 def save_trained_model(
     model, feature_scaler, target_scaler, model_type,
     window_size, model_dir, metrics,
     baselines=None, sensor_type=None, iaq_standard=None,
     baseline_gas_resistance=None,  # legacy compat
     training_history=None,
+    data_manifest=None,
 ):
     """Save a fully trained model with scalers, config, and checkpoint."""
     os.makedirs(model_dir, exist_ok=True)
@@ -271,6 +365,9 @@ def save_trained_model(
         "input_dim": window_size * num_features,
     }
 
+    if hasattr(model, 'prior_sigma'):
+        checkpoint["prior_sigma"] = model.prior_sigma
+
     torch.save(checkpoint, f"{model_dir}/model.pt")
 
     if training_history is not None:
@@ -282,5 +379,8 @@ def save_trained_model(
             metrics=metrics,
             output_dir=model_dir,
         )
+
+    if data_manifest is not None:
+        save_data_manifest(data_manifest, model_dir)
 
     print(f"\n  Saved {model_type.upper()}: MAE={metrics['mae']:.2f}, R2={metrics['r2']:.4f}")

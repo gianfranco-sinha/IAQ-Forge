@@ -1,0 +1,28 @@
+# Server deployment — uses Docker network hostname for InfluxDB
+influxdb:
+  version: "1.x"
+  client_type: "influxdb"
+  host: "influxdb"
+  port: 8086
+  database: "iaq_predictions"
+  username: ""
+  password: ""
+  timeout: 60
+  enabled: true
+  ssl: false
+  verify_ssl: true
+  org: ""
+  bucket: ""
+  token: ""
+
+database:
+  batch_size: 1000
+  max_retries: 3
+  retry_delay: 1
+  retention_policy: "autogen"
+  data_retention_days: 30
+
+logging:
+  log_queries: false
+  log_performance: false
+  query_timeout_threshold: 5

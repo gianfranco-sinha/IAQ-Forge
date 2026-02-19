@@ -1,0 +1,22 @@
+services:
+  iaq4j:
+    build: .
+    container_name: iaq4j
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./trained_models:/app/trained_models
+      - ./database_config.yaml:/app/database_config.yaml
+      - ./model_config.yaml:/app/model_config.yaml
+    networks:
+      - iotstack_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  iotstack_default:
+    external: true

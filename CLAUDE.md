@@ -76,3 +76,28 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 - All models inherit `torch.nn.Module`
 - Profile registration: `import app.builtin_profiles  # noqa: F401` — required wherever profiles are needed (main.py, pipeline.py)
 - Backward compat: old model artifacts with `baseline_gas_resistance` key still load; `SensorReading` accepts both old 4-field and new `readings` format
+
+## Deployment
+
+**Production server**: `pi@87.106.102.14` → `/home/pi/iaq4j/`
+
+```bash
+# Full deploy (rsync + deps + systemd restart + nginx + verify)
+bash deploy/deploy.sh
+
+# Docker (alternative)
+docker compose up -d
+
+# View production logs
+ssh pi@87.106.102.14 'journalctl -u iaq4j -f'
+```
+
+- **Systemd service** (`deploy/iaq4j.service`): runs uvicorn on `127.0.0.1:8001` as user `pi`
+- **Nginx** (`deploy/nginx-iaq4j.conf`): reverse proxies `/iaq4j/` → `localhost:8001`
+- **Docker** (`docker-compose.yml`): CPU-only PyTorch, port 8001, mounts `trained_models/` and config YAMLs, joins `iotstack_default` network
+- **`ROOT_PATH`** env var: set to `/iaq4j` in production for nginx subpath routing; defaults to `""` in dev. Must match nginx `location` path.
+- **InfluxDB writes**: `influx_manager.write_prediction()` writes to `iaq_predictions` measurement, tagged by model type. Global singleton in `app/database.py`.
+
+## Roadmap
+
+See `docs/roadmap.md` for pending features: physical quantity registry (P0), semantic field mapping with LLM (P1), artifact semver (P1), sensor registration API (P1).

@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import os
 from datetime import datetime
 
 from app.models import IAQPredictor
@@ -90,6 +91,7 @@ app = FastAPI(
     version=settings.API_VERSION,
     description="ML-based indoor air quality prediction — sensor and standard agnostic",
     lifespan=lifespan,
+    root_path=os.getenv("ROOT_PATH", ""),
 )
 
 

@@ -97,10 +97,15 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://enviro-sensors.uk",
+        "http://enviro-sensors.uk",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 
@@ -186,7 +191,10 @@ async def predict_iaq(reading: SensorReading):
         engine = inference_engines[active_model]
         sensor_readings = reading.get_readings()
 
-        result = engine.predict_single(sensor_readings)
+        result = engine.predict_single(
+            sensor_readings,
+            prior_variables=reading.prior_variables,
+        )
 
         # Log prediction to InfluxDB if enabled and prediction was successful
         if result.get('status') == 'ready' and result.get('iaq') is not None:
@@ -224,7 +232,8 @@ async def predict_with_uncertainty(reading: SensorReading):
 
         result = engine.predict_with_uncertainty(
             reading.get_readings(),
-            n_samples=20
+            n_samples=20,
+            prior_variables=reading.prior_variables,
         )
 
         return result

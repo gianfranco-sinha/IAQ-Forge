@@ -3,16 +3,25 @@ services:
     build: .
     container_name: iaq4j
     restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
     environment:
       - ROOT_PATH=/iaq
     ports:
       - "127.0.0.1:8001:8000"
     volumes:
-      - ./trained_models:/app/trained_models
-      - ./database_config.yaml:/app/database_config.yaml
-      - ./model_config.yaml:/app/model_config.yaml
+      - ./trained_models:/app/trained_models:ro
+      - ./database_config.yaml:/app/database_config.yaml:ro
+      - ./model_config.yaml:/app/model_config.yaml:ro
     networks:
       - iotstack_default
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "2.0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s

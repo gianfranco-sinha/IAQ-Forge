@@ -26,39 +26,19 @@ class BME680Profile(SensorProfile):
         return ["temperature", "rel_humidity", "pressure", "voc_resistance"]
 
     @property
-    def field_descriptions(self) -> Dict[str, Dict[str, str]]:
+    def feature_quantities(self) -> Dict[str, str]:
         return {
-            "temperature": {
-                "unit": "°C",
-                "description": "Ambient temperature",
-                "example": "25.0",
-            },
-            "rel_humidity": {
-                "unit": "%RH",
-                "description": "Relative humidity",
-                "example": "45.0",
-            },
-            "pressure": {
-                "unit": "hPa",
-                "description": "Barometric pressure",
-                "example": "1013.25",
-            },
-            "voc_resistance": {
-                "unit": "Ω",
-                "description": "MOX sensor resistance to volatile organic compounds",
-                "example": "50000.0",
-            },
+            "temperature": "temperature",
+            "rel_humidity": "relative_humidity",
+            "pressure": "barometric_pressure",
+            "voc_resistance": "voc_resistance",
         }
 
     @property
     def valid_ranges(self) -> Dict[str, Tuple[float, float]]:
-        return {
-            "temperature": (-40, 85),
-            "rel_humidity": (0, 100),
-            "pressure": (300, 1100),
-            "voc_resistance": (1000, 2_000_000),
-            "iaq_accuracy": (2, 3),
-        }
+        ranges = super().valid_ranges  # computed from registry
+        ranges["iaq_accuracy"] = (2, 3)  # quality column, not a quantity
+        return ranges
 
     @property
     def quality_column(self) -> Optional[str]:

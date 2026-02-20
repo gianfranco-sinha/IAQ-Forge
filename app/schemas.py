@@ -29,12 +29,29 @@ class SensorReading(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _build_readings(cls, values):
-        """Merge legacy fields into readings dict when readings is absent."""
-        if isinstance(values, dict) and values.get("readings") is None:
-            legacy_keys = ["temperature", "rel_humidity", "pressure", "voc_resistance"]
-            legacy = {k: values[k] for k in legacy_keys if k in values and values[k] is not None}
-            if legacy:
-                values["readings"] = legacy
+        """Apply field_mapping then merge legacy fields into readings dict."""
+        if isinstance(values, dict):
+            # Apply field mapping if configured
+            from app.config import settings
+            cfg = settings.load_model_config()
+            field_mapping = cfg.get("sensor", {}).get("field_mapping", {})
+            if field_mapping:
+                readings = values.get("readings")
+                if readings and isinstance(readings, dict):
+                    values["readings"] = {
+                        field_mapping.get(k, k): v for k, v in readings.items()
+                    }
+                else:
+                    for ext, internal in field_mapping.items():
+                        if ext in values and values[ext] is not None:
+                            values[internal] = values.pop(ext)
+
+            # Merge legacy fields into readings when readings is absent
+            if values.get("readings") is None:
+                legacy_keys = ["temperature", "rel_humidity", "pressure", "voc_resistance"]
+                legacy = {k: values[k] for k in legacy_keys if k in values and values[k] is not None}
+                if legacy:
+                    values["readings"] = legacy
         return values
 
     def get_readings(self) -> Dict[str, float]:

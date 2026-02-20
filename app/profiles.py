@@ -24,21 +24,57 @@ class SensorProfile(ABC):
         ...
 
     @property
-    @abstractmethod
+    def feature_quantities(self) -> Dict[str, str]:
+        """Map feature names to quantity names from quantities.yaml.
+
+        Override in subclass to enable registry-driven valid_ranges and
+        field_descriptions.  Keys are feature names (matching raw_features),
+        values are quantity names from quantities.yaml.
+        """
+        return {}
+
+    @property
+    def feature_units(self) -> Dict[str, str]:
+        """Map feature names to the units the sensor reports.
+
+        Only needed when the sensor reports in a non-canonical unit.  If a
+        feature is absent from this dict, the canonical unit is assumed.
+        """
+        return {}
+
+    @property
     def valid_ranges(self) -> Dict[str, Tuple[float, float]]:
-        """Valid (min, max) ranges for each raw feature and quality columns."""
-        ...
+        """Valid (min, max) ranges for each raw feature and quality columns.
+
+        By default, computed from feature_quantities + the quantity registry.
+        Override in subclass to extend or replace.
+        """
+        from app.quantities import get_quantity
+
+        ranges: Dict[str, Tuple[float, float]] = {}
+        for feat, qty_name in self.feature_quantities.items():
+            q = get_quantity(qty_name)
+            if q.valid_range:
+                ranges[feat] = q.valid_range
+        return ranges
 
     @property
     def field_descriptions(self) -> Dict[str, Dict[str, str]]:
-        """Per-feature metadata: unit, physical meaning, and example value.
+        """Per-feature metadata: unit, physical meaning.
 
-        Override in subclass. Keys must match ``raw_features``.
-        Example::
-
-            {"temperature": {"unit": "°C", "description": "Ambient temperature", "example": "25.0"}}
+        By default, computed from feature_quantities + the quantity registry.
+        Override in subclass to extend or replace.
         """
-        return {}
+        from app.quantities import get_quantity
+
+        descs: Dict[str, Dict[str, str]] = {}
+        for feat, qty_name in self.feature_quantities.items():
+            q = get_quantity(qty_name)
+            descs[feat] = {
+                "unit": q.canonical_unit,
+                "description": q.description,
+            }
+        return descs
 
     @property
     def quality_column(self) -> Optional[str]:

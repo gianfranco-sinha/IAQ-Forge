@@ -1,0 +1,110 @@
+# ============================================================================
+# Physical Quantity Registry for iaq4j
+# ============================================================================
+# Central registry of physical quantities with canonical units, valid ranges,
+# and unit conversion expressions. Used by SensorProfile to compute
+# valid_ranges and field_descriptions from quantity names.
+#
+# Each quantity has:
+#   canonical_unit  - the unit iaq4j uses internally
+#   description     - human-readable description
+#   valid_range     - [min, max] in canonical units
+#   kind            - optional grouping (sensor_feature, iaq_standard, metadata)
+#   aliases         - alternative names for fuzzy field mapping
+#   alternate_units - dict of unit → conversion expression using {value}
+
+temperature:
+  canonical_unit: "°C"
+  description: "Ambient temperature"
+  valid_range: [-40, 85]
+  kind: sensor_feature
+  aliases: ["temp", "ambient_temperature", "air_temperature", "t"]
+  alternate_units:
+    "°F":
+      convert: "({value} - 32) * 5 / 9"
+    "K":
+      convert: "{value} - 273.15"
+
+relative_humidity:
+  canonical_unit: "%RH"
+  description: "Relative humidity"
+  valid_range: [0, 100]
+  kind: sensor_feature
+  aliases: ["humidity", "rel_humidity", "rh", "relative_hum", "humid"]
+  alternate_units: {}
+
+barometric_pressure:
+  canonical_unit: "hPa"
+  description: "Barometric pressure"
+  valid_range: [300, 1100]
+  kind: sensor_feature
+  aliases: ["pressure", "baro_pressure", "atm_pressure", "air_pressure", "press"]
+  alternate_units:
+    "Pa":
+      convert: "{value} / 100"
+    "kPa":
+      convert: "{value} * 10"
+    "mbar":
+      convert: "{value}"
+    "inHg":
+      convert: "{value} * 33.8639"
+
+voc_resistance:
+  canonical_unit: "Ω"
+  description: "MOX sensor resistance to volatile organic compounds"
+  valid_range: [1000, 2000000]
+  kind: sensor_feature
+  aliases: ["gas_resistance", "mox_resistance", "voc_res", "gas_res"]
+  alternate_units:
+    "kΩ":
+      convert: "{value} * 1000"
+    "MΩ":
+      convert: "{value} * 1000000"
+
+co2:
+  canonical_unit: "ppm"
+  description: "Carbon dioxide concentration"
+  valid_range: [400, 5000]
+  kind: sensor_feature
+  aliases: ["carbon_dioxide", "co2_ppm", "co2_concentration"]
+  alternate_units: {}
+
+pm2_5:
+  canonical_unit: "µg/m³"
+  description: "Fine particulate matter (diameter ≤ 2.5 µm)"
+  valid_range: [0, 500]
+  kind: sensor_feature
+  aliases: ["pm25", "pm_2_5", "fine_dust", "particulate_matter_25"]
+  alternate_units: {}
+
+tvoc:
+  canonical_unit: "ppb"
+  description: "Total volatile organic compounds"
+  valid_range: [0, 60000]
+  kind: sensor_feature
+  aliases: ["total_voc", "tvoc_ppb", "voc"]
+  alternate_units: {}
+
+bsec_iaq:
+  canonical_unit: "index"
+  description: "Bosch BSEC indoor air quality index (0-500)"
+  valid_range: [0, 500]
+  kind: iaq_standard
+  aliases: ["iaq", "bsec", "iaq_index"]
+  alternate_units: {}
+
+iaq_accuracy:
+  canonical_unit: "level"
+  description: "BSEC IAQ accuracy level (0=unreliable, 3=high)"
+  valid_range: [0, 3]
+  kind: metadata
+  aliases: ["accuracy", "iaq_acc"]
+  alternate_units: {}
+
+epa_aqi:
+  canonical_unit: "index"
+  description: "US EPA Air Quality Index (0-500)"
+  valid_range: [0, 500]
+  kind: iaq_standard
+  aliases: ["aqi", "epa", "air_quality_index"]
+  alternate_units: {}

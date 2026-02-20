@@ -52,14 +52,47 @@ def create_parser():
     )
     train_parser.add_argument(
         "--data-source",
-        choices=["synthetic", "influxdb"],
+        choices=["synthetic", "influxdb", "csv"],
         default="synthetic",
         help="Data source for training (default: synthetic)",
+    )
+    train_parser.add_argument(
+        "--csv-path",
+        type=str,
+        help="Path to CSV file (required when --data-source csv)",
     )
 
     # List models command
     list_parser = subparsers.add_parser(
         "list", help="List available models in registry"
+    )
+
+    # Map fields command
+    map_parser = subparsers.add_parser(
+        "map-fields", help="Map CSV column headers to iaq4j features"
+    )
+    map_parser.add_argument(
+        "--source",
+        type=str,
+        required=True,
+        help="Path to CSV file whose columns to map",
+    )
+    map_parser.add_argument(
+        "--sample-rows",
+        type=int,
+        default=10,
+        help="Number of sample rows for range validation (default: 10)",
+    )
+    map_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=70,
+        help="Fuzzy match score threshold 0-100 (default: 70)",
+    )
+    map_parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save mapping to model_config.yaml under sensor.field_mapping",
     )
 
     return parser
@@ -92,6 +125,12 @@ def main():
             if args.data_source == "influxdb":
                 from training.data_sources import InfluxDBSource
                 data_source = InfluxDBSource()
+            elif args.data_source == "csv":
+                if not args.csv_path:
+                    print("❌ --csv-path is required when --data-source is csv")
+                    sys.exit(1)
+                from training.data_sources import CSVDataSource
+                data_source = CSVDataSource(args.csv_path)
 
             try:
                 trainer.train_model(
@@ -112,6 +151,36 @@ def main():
         print("Available models in registry:")
         for model_type in MODEL_REGISTRY:
             print(f"  - {model_type}")
+
+    elif args.command == "map-fields":
+        import app.builtin_profiles  # noqa: F401
+        from app.field_mapper import FieldMapper
+        from app.profiles import get_sensor_profile
+
+        profile = get_sensor_profile()
+        mapper = FieldMapper(profile, fuzzy_threshold=args.threshold)
+
+        headers, sample_values = FieldMapper.sample_csv(args.source, n_rows=args.sample_rows)
+        result = mapper.map_fields(headers, sample_values=sample_values)
+
+        print(f"\nField mapping for: {args.source}")
+        print(f"Sensor profile: {profile.name}\n")
+        print(mapper.format_report(result))
+
+        if args.save and result.matches:
+            import yaml
+
+            config_path = project_root / "model_config.yaml"
+            with open(config_path) as f:
+                cfg = yaml.safe_load(f)
+
+            mapping = {m.source_field: m.target_feature for m in result.matches}
+            cfg.setdefault("sensor", {})["field_mapping"] = mapping
+
+            with open(config_path, "w") as f:
+                yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+
+            print(f"\nMapping saved to {config_path} under sensor.field_mapping")
 
 
 if __name__ == "__main__":

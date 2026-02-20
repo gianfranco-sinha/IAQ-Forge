@@ -2,6 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -138,6 +139,92 @@ class InfluxDBSource(DataSource):
         if self._client is not None:
             self._client.close()
             self._client = None
+
+
+class CSVDataSource(DataSource):
+    """Loads training data from a CSV file."""
+
+    def __init__(self, csv_path: str, field_mapping: Optional[dict] = None):
+        self.csv_path = csv_path
+        self._field_mapping = field_mapping
+
+    @property
+    def name(self) -> str:
+        return f"CSV({self.csv_path})"
+
+    @property
+    def metadata(self) -> dict:
+        return {
+            "source_type": "csv",
+            "csv_path": self.csv_path,
+            "field_mapping": self._field_mapping or {},
+        }
+
+    @property
+    def field_mapping(self) -> dict:
+        if self._field_mapping is not None:
+            return self._field_mapping
+        cfg = settings.load_model_config()
+        return cfg.get("sensor", {}).get("field_mapping", {})
+
+    def validate(self) -> None:
+        """Check that CSV file exists and is readable."""
+        from pathlib import Path
+
+        p = Path(self.csv_path)
+        if not p.is_file():
+            raise FileNotFoundError(f"CSV file not found: {self.csv_path}")
+        logger.info("Validated CSV source: %s", self.csv_path)
+
+    def fetch(self) -> pd.DataFrame:
+        """Read CSV, apply field mapping, validate required columns."""
+        from app.profiles import get_iaq_standard, get_sensor_profile
+
+        profile = get_sensor_profile()
+        standard = get_iaq_standard()
+
+        df = pd.read_csv(self.csv_path)
+        raw_count = len(df)
+        logger.info("Read %d rows from %s", raw_count, self.csv_path)
+
+        # Apply field mapping (rename columns: external → internal)
+        mapping = self.field_mapping
+        if mapping:
+            reverse = {ext: internal for ext, internal in mapping.items()}
+            df = df.rename(columns=reverse)
+            logger.info("Applied field mapping: %s", reverse)
+
+        # Detect and set timestamp index
+        ts_candidates = {"timestamp", "time", "datetime", "date", "ts"}
+        for col in df.columns:
+            if col.lower().strip() in ts_candidates:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+                df = df.set_index(col)
+                logger.info("Set timestamp index: %s", col)
+                break
+
+        # Validate required columns
+        required = list(profile.raw_features) + [standard.target_column]
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise ValueError(
+                f"CSV missing required columns: {missing}. "
+                f"Available: {list(df.columns)}. "
+                f"Consider running 'python -m iaq4j map-fields --source {self.csv_path} --save' first."
+            )
+
+        # Filter by quality column if available
+        if profile.quality_column and profile.quality_column in df.columns:
+            if profile.quality_min is not None:
+                df = df[df[profile.quality_column] >= profile.quality_min]
+
+        df = df.dropna(subset=required)
+        logger.info(
+            "CSV: %d raw rows → %d after filtering (columns: %s)",
+            raw_count, len(df), list(df.columns),
+        )
+
+        return df
 
 
 class SyntheticSource(DataSource):

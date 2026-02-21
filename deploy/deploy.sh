@@ -3,7 +3,7 @@
 # Usage: bash deploy/deploy.sh
 set -euo pipefail
 
-SERVER="pi@87.106.102.14"
+SERVER="0.0.0.0"
 REMOTE_DIR="/home/pi/iaq4j"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"

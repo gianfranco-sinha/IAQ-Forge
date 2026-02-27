@@ -52,9 +52,34 @@ def create_parser():
     )
     train_parser.add_argument(
         "--data-source",
-        choices=["synthetic", "influxdb", "csv"],
+        choices=["synthetic", "influxdb", "csv", "labelstudio"],
         default="synthetic",
         help="Data source for training (default: synthetic)",
+    )
+    train_parser.add_argument(
+        "--ls-project-id",
+        type=int,
+        help="Label Studio project ID (required when --data-source labelstudio)",
+    )
+    train_parser.add_argument(
+        "--ls-url",
+        type=str,
+        help="Label Studio server URL (overrides label_studio.url in model_config.yaml)",
+    )
+    train_parser.add_argument(
+        "--database",
+        type=str,
+        help="InfluxDB database name (for influxdb source)",
+    )
+    train_parser.add_argument(
+        "--hours-back",
+        type=int,
+        help="Hours of data to fetch from InfluxDB (default: 1344 ≈ 56 days)",
+    )
+    train_parser.add_argument(
+        "--max-records",
+        type=int,
+        help="Maximum number of records to fetch from InfluxDB",
     )
     train_parser.add_argument(
         "--csv-path",
@@ -70,6 +95,17 @@ def create_parser():
     # Version command
     version_parser = subparsers.add_parser(
         "version", help="Show active model versions (semver)"
+    )
+
+    # Verify command
+    verify_parser = subparsers.add_parser(
+        "verify", help="Verify Merkle tree provenance of trained models"
+    )
+    verify_parser.add_argument(
+        "--model",
+        choices=["mlp", "kan", "lstm", "cnn", "bnn", "all"],
+        default="all",
+        help="Model type to verify (default: all)",
     )
 
     # Map fields command
@@ -106,7 +142,8 @@ def create_parser():
         help="Mapping backend: fuzzy (Tier 1+2) or ollama (adds Tier 3 LLM) (default: fuzzy)",
     )
     map_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="Skip interactive confirmation (accept mapping automatically)",
     )
@@ -140,10 +177,14 @@ def _interactive_confirm(result, profile):
     confirmed = []
     for m in result.matches:
         try:
-            resp = input(
-                f"  {m.source_field} -> {m.target_feature} ({m.confidence:.0%} {m.method})"
-                f"  [a(ccept)/o(verride)/s(kip)] "
-            ).strip().lower()
+            resp = (
+                input(
+                    f"  {m.source_field} -> {m.target_feature} ({m.confidence:.0%} {m.method})"
+                    f"  [a(ccept)/o(verride)/s(kip)] "
+                )
+                .strip()
+                .lower()
+            )
         except (EOFError, KeyboardInterrupt):
             return None
 
@@ -159,13 +200,16 @@ def _interactive_confirm(result, profile):
                 return None
             if new_target in available_features:
                 from app.field_mapper import FieldMatch
-                confirmed.append(FieldMatch(
-                    source_field=m.source_field,
-                    target_quantity=profile.feature_quantities[new_target],
-                    target_feature=new_target,
-                    confidence=1.0,
-                    method="manual",
-                ))
+
+                confirmed.append(
+                    FieldMatch(
+                        source_field=m.source_field,
+                        target_quantity=profile.feature_quantities[new_target],
+                        target_feature=new_target,
+                        confidence=1.0,
+                        method="manual",
+                    )
+                )
             else:
                 print(f"    Unknown feature '{new_target}', skipping.")
         else:
@@ -201,13 +245,26 @@ def main():
             data_source = None
             if args.data_source == "influxdb":
                 from training.data_sources import InfluxDBSource
-                data_source = InfluxDBSource()
+
+                data_source = InfluxDBSource(
+                    database=args.database,
+                    max_records=args.max_records,
+                    hours_back=args.hours_back,
+                )
             elif args.data_source == "csv":
                 if not args.csv_path:
                     print("❌ --csv-path is required when --data-source is csv")
                     sys.exit(1)
                 from training.data_sources import CSVDataSource
+
                 data_source = CSVDataSource(args.csv_path)
+            elif args.data_source == "labelstudio":
+                from training.data_sources import LabelStudioDataSource
+
+                data_source = LabelStudioDataSource(
+                    project_id=args.ls_project_id,
+                    url=args.ls_url,
+                )
 
             try:
                 trainer.train_model(
@@ -241,7 +298,9 @@ def main():
             print("No active model versions found.")
             return
 
-        print(f"\n{'Model':<8} {'Version':<16} {'Schema FP':<14} {'MAE':>8} {'RMSE':>8} {'R2':>8}  {'Trained'}")
+        print(
+            f"\n{'Model':<8} {'Version':<16} {'Schema FP':<14} {'MAE':>8} {'RMSE':>8} {'R2':>8}  {'Trained'}"
+        )
         print("-" * 88)
 
         for run in sorted(active_runs, key=lambda r: r.get("model_type", "")):
@@ -254,9 +313,42 @@ def main():
             r2 = f"{metrics['r2']:.4f}" if "r2" in metrics else "—"
             trained = run.get("timestamp", "—")[:19]
 
-            print(f"{model_type:<8} {version:<16} {schema_fp:<14} {mae:>8} {rmse:>8} {r2:>8}  {trained}")
+            print(
+                f"{model_type:<8} {version:<16} {schema_fp:<14} {mae:>8} {rmse:>8} {r2:>8}  {trained}"
+            )
 
         print()
+
+    elif args.command == "verify":
+        from app.config import settings
+        from training.merkle import verify_merkle_tree
+
+        model_types = (
+            ["mlp", "kan", "lstm", "cnn", "bnn"]
+            if args.model == "all"
+            else [args.model]
+        )
+        any_checked = False
+
+        for model_type in model_types:
+            model_dir = Path(settings.TRAINED_MODELS_BASE) / model_type
+            if not model_dir.exists():
+                continue
+
+            any_checked = True
+            result = verify_merkle_tree(model_dir)
+
+            if result["valid"]:
+                print(
+                    f"  [PASS] {model_type:<6} merkle_root={result['root_hash'][:16]}..."
+                )
+            else:
+                print(f"  [FAIL] {model_type:<6}")
+                for mismatch in result["mismatches"]:
+                    print(f"         - {mismatch}")
+
+        if not any_checked:
+            print("No trained models found. Train a model first.")
 
     elif args.command == "list":
         from app.models import MODEL_REGISTRY
@@ -273,9 +365,13 @@ def main():
         profile = get_sensor_profile()
         mapper = FieldMapper(profile, fuzzy_threshold=args.threshold)
 
-        headers, sample_values = FieldMapper.sample_csv(args.source, n_rows=args.sample_rows)
+        headers, sample_values = FieldMapper.sample_csv(
+            args.source, n_rows=args.sample_rows
+        )
         result = mapper.map_fields(
-            headers, sample_values=sample_values, backend=args.backend,
+            headers,
+            sample_values=sample_values,
+            backend=args.backend,
         )
 
         print(f"\nField mapping for: {args.source}")

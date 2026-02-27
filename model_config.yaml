@@ -85,9 +85,15 @@ bnn:
 # Sensor configuration — valid ranges for outlier filtering during preprocessing
 sensor:
   type: bme680
+  identity:
+    sensor_id: null          # e.g. "bme680-A4:CF:12:8B:3E:01"
+    firmware_version: null   # e.g. "2.6.1.0"
   # Column names — single source of truth for pipeline field references
   features: [temperature, rel_humidity, pressure, voc_resistance]
   target: iaq
+  # Field mapping: external column name -> internal name
+  field_mapping:
+    gas_resistance: voc_resistance
   valid_ranges:
     temperature: [-40, 85]           # °C (BME680 full operating range)
     rel_humidity: [0, 100]           # % r.H.
@@ -103,6 +109,12 @@ field_mapping:
 # IAQ standard — selects the target scale and category breakpoints
 iaq_standard:
   type: bsec                         # Registered IAQStandard name (see app/builtin_profiles.py)
+
+# Label Studio configuration — used by LabelStudioDataSource
+label_studio:
+  url: "http://localhost:8080"   # Label Studio server URL
+  api_key: ""                    # API token (or set LABEL_STUDIO_API_KEY env var)
+  project_id: null               # Integer project ID (required; can be overridden via CLI)
 
 # Training configuration — read by TrainingPipeline and train_model()
 training:

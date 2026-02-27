@@ -101,6 +101,15 @@ class Settings(BaseSettings):
             },
         }
 
+    def get_sensor_identity(self) -> Dict[str, Any]:
+        """Get sensor identity (sensor_id, firmware_version) from config."""
+        config = self.load_model_config()
+        identity = config.get("sensor", {}).get("identity", {})
+        return {
+            "sensor_id": identity.get("sensor_id"),
+            "firmware_version": identity.get("firmware_version"),
+        }
+
     def get_training_config(self) -> Dict[str, Any]:
         """Get training configuration with defaults."""
         config = self.load_model_config()
@@ -142,6 +151,17 @@ class Settings(BaseSettings):
         if "valid_ranges" in sensor_cfg:
             defaults["valid_ranges"].update(sensor_cfg["valid_ranges"])
         return defaults
+
+    def get_label_studio_config(self) -> Dict[str, Any]:
+        """Get Label Studio connection config with env-var override for api_key."""
+        import os
+        config = self.load_model_config()
+        ls = config.get("label_studio", {})
+        return {
+            "url": ls.get("url", "http://localhost:8080").rstrip("/"),
+            "api_key": os.environ.get("LABEL_STUDIO_API_KEY", ls.get("api_key", "")),
+            "project_id": ls.get("project_id"),
+        }
 
     def get_prior_variables_config(self) -> Dict[str, Any]:
         """Get user-declared prior variables from bnn.prior_variables config."""

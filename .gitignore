@@ -35,5 +35,9 @@ build/
 # TensorBoard logs
 runs/
 
-#Site specific info
+# Site specific info
 deploy/
+
+# ML artifacts
+trained_models/
+mlruns/

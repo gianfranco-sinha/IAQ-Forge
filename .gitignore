@@ -40,4 +40,7 @@ deploy/
 
 # ML artifacts
 trained_models/
+!trained_models/*/config.json
+trained_models/*/*.pt
+trained_models/*/*.pkl
 mlruns/

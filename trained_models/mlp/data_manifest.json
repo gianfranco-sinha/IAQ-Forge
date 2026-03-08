@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-02-20T19:13:45.444885",
-  "git_commit": "3544cb0",
+  "created_at": "2026-03-06T22:11:57.049322",
+  "git_commit": "f324f7d",
   "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
   "data_source": {
     "source_type": "synthetic",
@@ -19,7 +19,11 @@
     "lr_scheduler_patience": 10,
     "lr_scheduler_factor": 0.5,
     "sensor_type": "bme680",
-    "iaq_standard": "bsec"
+    "iaq_standard": "bsec",
+    "num_features": 10,
+    "data_source": "SyntheticSource(1000 samples)",
+    "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+    "git_commit": "f324f7d"
   },
   "feature_statistics": {
     "temperature": {
@@ -57,6 +61,30 @@
       "std": 0.34111458145285706,
       "min": 0.0007721350322827768,
       "max": 1.7740744934460317
+    },
+    "hour_sin": {
+      "mean": -0.0036052826691920464,
+      "std": 0.701408484562356,
+      "min": -1.0,
+      "max": 1.0
+    },
+    "hour_cos": {
+      "mean": 0.021120127428432472,
+      "std": 0.7124374217699554,
+      "min": -1.0,
+      "max": 1.0
+    },
+    "dow_sin": {
+      "mean": 0.014951218169321066,
+      "std": 0.6985046027588394,
+      "min": -0.9749279121818236,
+      "max": 0.9749279121818236
+    },
+    "dow_cos": {
+      "mean": 0.02981700322604263,
+      "std": 0.7148277605959267,
+      "min": -0.9009688679024191,
+      "max": 1.0
     }
   },
   "target_statistics": {
@@ -80,7 +108,7 @@
     },
     {
       "stage": "ingestion",
-      "duration_seconds": 0.014,
+      "duration_seconds": 0.027,
       "rows_in": 1000,
       "rows_out": 1000,
       "columns": [
@@ -94,7 +122,9 @@
       "extra": {
         "rows_before_cleaning": 1000,
         "rows_after_cleaning": 1000,
-        "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b"
+        "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+        "date_range_start": "2024-01-01 00:04:12+00:00",
+        "date_range_end": "2024-01-07 23:30:25+00:00"
       }
     },
     {
@@ -108,7 +138,11 @@
         "pressure",
         "voc_resistance",
         "voc_ratio",
-        "abs_humidity"
+        "abs_humidity",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos"
       ],
       "extra": {
         "baselines": {
@@ -118,35 +152,40 @@
     },
     {
       "stage": "windowing",
-      "duration_seconds": 0.001,
+      "duration_seconds": 0.0,
       "rows_in": 1000,
-      "rows_out": 991,
+      "rows_out": 24,
       "columns": null,
       "extra": {
         "window_size": 10,
-        "feature_dim": 60,
-        "gaps_found": 0,
-        "segments": 1,
-        "skipped": true
+        "feature_dim": 100,
+        "gaps_found": 254,
+        "segments": 255,
+        "median_interval_seconds": 419.0,
+        "gap_threshold_seconds": 838.0,
+        "largest_gap_seconds": 3872.0,
+        "longest_segment_start": 428,
+        "longest_segment_end": 461,
+        "longest_segment_samples": 33
       }
     },
     {
       "stage": "splitting",
       "duration_seconds": 0.0,
-      "rows_in": 991,
-      "rows_out": 991,
+      "rows_in": 24,
+      "rows_out": 24,
       "columns": null,
       "extra": {
-        "train_samples": 792,
-        "val_samples": 199,
+        "train_samples": 19,
+        "val_samples": 5,
         "test_size": 0.2
       }
     },
     {
       "stage": "scaling",
       "duration_seconds": 0.001,
-      "rows_in": 991,
-      "rows_out": 991,
+      "rows_in": 24,
+      "rows_out": 24,
       "columns": null,
       "extra": {
         "feature_scaler": "StandardScaler",
@@ -156,42 +195,124 @@
     },
     {
       "stage": "training",
-      "duration_seconds": 1.843,
+      "duration_seconds": 1.685,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
         "epochs": 5,
-        "best_val_loss": 0.08631431737116405,
+        "best_val_loss": 0.22907252609729767,
         "device": "mps",
-        "tensorboard_log_dir": "runs/mlp_20260220_191343"
+        "tensorboard_log_dir": "runs/mlp_20260306_221155"
       }
     },
     {
       "stage": "evaluation",
-      "duration_seconds": 0.037,
+      "duration_seconds": 0.007,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "mae": 121.18858621003636,
-        "rmse": 150.41120752045754,
-        "r2": -0.3095301058527178
+        "mae": 182.72768019398512,
+        "rmse": 227.49218928214023,
+        "r2": -1.4973969654019035
       }
     }
   ],
   "preprocessing_issues": [
     {
-      "severity": "info",
-      "stage": "ingestion",
-      "message": "No DatetimeIndex \u2014 gap detection and ordering checks skipped",
+      "severity": "warning",
+      "stage": "windowing",
+      "message": "Detected 254 time gap(s) across 255 contiguous segments (largest gap: 3872s)",
       "rows_affected": null
     }
   ],
   "metrics": {
-    "mae": 121.18858621003636,
-    "rmse": 150.41120752045754,
-    "r2": -0.3095301058527178
+    "mae": 182.72768019398512,
+    "rmse": 227.49218928214023,
+    "r2": -1.4973969654019035
   },
-  "version": "mlp-v6"
+  "version": "mlp-2.0.0",
+  "merkle_tree": {
+    "node_type": "trained_model",
+    "content_inputs": {
+      "model_type": "mlp",
+      "weights_hash": "04e1bc657435b9cf2f4a7ecdf4fc0acc85d2c849cf8171a5e4653541eebe1e12",
+      "metrics": {
+        "mae": 182.72768019398512,
+        "rmse": 227.49218928214023,
+        "r2": -1.4973969654019035
+      },
+      "epochs": 5,
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "version": "mlp-2.0.0"
+    },
+    "content_hash": "5acfdf9d44c9e0975aa57c963edff1bfcf985fc7e3e66712e7c5d70572768c88",
+    "children": [
+      {
+        "node_type": "split_data",
+        "content_inputs": {
+          "test_size": 0.2,
+          "train_samples": 19,
+          "val_samples": 5
+        },
+        "content_hash": "8d124fe337426c9967e8f5cbd2b66eef5c5dd3e3d74e2dcc6ebcc279fe7a8b72",
+        "children": [
+          {
+            "node_type": "preprocessed_data",
+            "content_inputs": {
+              "schema_fingerprint": "317cc3b2111a",
+              "feature_stats_hash": "fa5ca51c728b62a0",
+              "baselines": {
+                "voc_resistance": 991684.8090259067
+              },
+              "scaler_hash": "3135c174db46cad8f6046b5460c53f50a4e91f4a26d68bb8a004aad91da617db",
+              "window_size": 10,
+              "num_features": 10,
+              "sample_count": 24
+            },
+            "content_hash": "8c1a7ce17e34bbb8722bd78bae391ee29a83fe93653fec6787741f3d26586e2d",
+            "children": [
+              {
+                "node_type": "cleansed_data",
+                "content_inputs": {
+                  "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+                  "clean_row_count": 1000,
+                  "rows_dropped": 0,
+                  "issues_summary": "[warning] Detected 254 time gap(s) across 255 contiguous segments (largest gap: 3872s)"
+                },
+                "content_hash": "25035abb45826b018d7d461c1858d0e9ee53ee74f377ed40b4c27b7c506beee1",
+                "children": [
+                  {
+                    "node_type": "raw_data",
+                    "content_inputs": {
+                      "raw_row_count": 1000,
+                      "source_type": "synthetic",
+                      "num_samples": 1000,
+                      "seed": 42
+                    },
+                    "content_hash": "7bae6513ff72a4b1ec940b921d7862084cf5fa070873477550260821820d59e4",
+                    "children": [
+                      {
+                        "node_type": "sensor",
+                        "content_inputs": {
+                          "sensor_id": "unknown",
+                          "firmware_version": "unknown",
+                          "sensor_type": "bme680"
+                        },
+                        "content_hash": "d58fd2aa38f07adb3182dc031d25532ed3fe509fc4ebc027ebb80f07597316bb",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "merkle_root_hash": "5acfdf9d44c9e0975aa57c963edff1bfcf985fc7e3e66712e7c5d70572768c88"
 }

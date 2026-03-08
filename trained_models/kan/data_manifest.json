@@ -1,15 +1,19 @@
 {
-  "created_at": "2026-02-18T22:58:01.793424",
-  "git_commit": "9afac2c",
-  "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+  "created_at": "2026-02-26T14:19:49.135863",
+  "git_commit": "a131b51",
+  "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
   "data_source": {
-    "source_type": "synthetic",
-    "num_samples": 1000,
-    "seed": 42
+    "source_type": "influxdb",
+    "measurement": "bme688",
+    "hours_back": null,
+    "min_iaq_accuracy": 2,
+    "host": "87.106.102.14",
+    "database": "home_study_room_iaq",
+    "max_records": 50000
   },
   "config": {
     "model_type": "kan",
-    "epochs": 50,
+    "epochs": 200,
     "window_size": 10,
     "batch_size": 32,
     "learning_rate": 0.001,
@@ -19,70 +23,74 @@
     "lr_scheduler_patience": 10,
     "lr_scheduler_factor": 0.5,
     "sensor_type": "bme680",
-    "iaq_standard": "bsec"
+    "iaq_standard": "bsec",
+    "num_features": 6,
+    "data_source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)",
+    "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+    "git_commit": "a131b51"
   },
   "feature_statistics": {
     "temperature": {
-      "mean": 22.217783852843194,
-      "std": 29.143985909032963,
-      "min": -27.37669374880919,
-      "max": 72.41047304742386
+      "mean": 11.951902353009192,
+      "std": 0.2982412218161168,
+      "min": 11.25,
+      "max": 12.47
     },
     "rel_humidity": {
-      "mean": 50.679647885881536,
-      "std": 23.135836098451694,
-      "min": 10.041499533256442,
-      "max": 89.95375273793502
+      "mean": 47.0120986298202,
+      "std": 2.06740047119946,
+      "min": 42.44,
+      "max": 52.34
     },
     "pressure": {
-      "mean": 695.4390057626583,
-      "std": 185.23303983800372,
-      "min": 380.6335961128871,
-      "max": 1019.8498156251801
+      "mean": 1006.5651705498062,
+      "std": 2.695236444638226,
+      "min": 1001.88,
+      "max": 1009.92
     },
     "voc_resistance": {
-      "mean": 990220.6855578517,
-      "std": 463977.42876996275,
-      "min": 201927.17207683806,
-      "max": 1799154.753479964
+      "mean": 196959.66157079264,
+      "std": 35448.79762500854,
+      "min": 94797.26,
+      "max": 273212.38
     },
     "voc_ratio": {
-      "mean": 0.9985235999838564,
-      "std": 0.46786783920357694,
-      "min": 0.203620313872896,
-      "max": 1.8142405097918195
+      "mean": 0.9886451260393824,
+      "std": 0.1779363384178265,
+      "min": 0.47583778482073746,
+      "max": 1.37139800965557
     },
     "abs_humidity": {
-      "mean": 0.2399015636675481,
-      "std": 0.34111458145285706,
-      "min": 0.0007721350322827768,
-      "max": 1.7740744934460317
+      "mean": 0.04994475638091598,
+      "std": 0.002437596094646448,
+      "min": 0.043693545807938765,
+      "max": 0.05649452591283702
     }
   },
   "target_statistics": {
     "iaq": {
-      "mean": 243.3198072562802,
-      "std": 140.71843914829407,
-      "min": 0.0,
-      "max": 500.0
+      "mean": 94.54911950049141,
+      "std": 47.749028230211394,
+      "min": 47.23,
+      "max": 399.32
     }
   },
   "stages": [
     {
       "stage": "source_access",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.13,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "source": "SyntheticSource(1000 samples)"
+        "source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)"
       }
     },
     {
       "stage": "ingestion",
-      "duration_seconds": 0.007,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 1.889,
+      "rows_in": 34594,
+      "rows_out": 34594,
       "columns": [
         "temperature",
         "rel_humidity",
@@ -92,16 +100,18 @@
         "iaq_accuracy"
       ],
       "extra": {
-        "rows_before_cleaning": 1000,
-        "rows_after_cleaning": 1000,
-        "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b"
+        "rows_before_cleaning": 34594,
+        "rows_after_cleaning": 34594,
+        "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+        "date_range_start": "2026-01-02 11:39:42.858073+00:00",
+        "date_range_end": "2026-01-04 05:31:53.926918+00:00"
       }
     },
     {
       "stage": "feature_engineering",
-      "duration_seconds": 0.001,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 0.002,
+      "rows_in": 34594,
+      "rows_out": 34594,
       "columns": [
         "temperature",
         "rel_humidity",
@@ -112,41 +122,46 @@
       ],
       "extra": {
         "baselines": {
-          "voc_resistance": 991684.8090259067
+          "voc_resistance": 199221.8
         }
       }
     },
     {
       "stage": "windowing",
-      "duration_seconds": 0.001,
-      "rows_in": 1000,
-      "rows_out": 991,
+      "duration_seconds": 0.02,
+      "rows_in": 34594,
+      "rows_out": 16425,
       "columns": null,
       "extra": {
         "window_size": 10,
         "feature_dim": 60,
-        "gaps_found": 0,
-        "segments": 1,
-        "skipped": true
+        "gaps_found": 4,
+        "segments": 5,
+        "median_interval_seconds": 3.0,
+        "gap_threshold_seconds": 6.0,
+        "largest_gap_seconds": 33700.0,
+        "longest_segment_start": 18160,
+        "longest_segment_end": 34594,
+        "longest_segment_samples": 16434
       }
     },
     {
       "stage": "splitting",
       "duration_seconds": 0.0,
-      "rows_in": 991,
-      "rows_out": 991,
+      "rows_in": 16425,
+      "rows_out": 16425,
       "columns": null,
       "extra": {
-        "train_samples": 792,
-        "val_samples": 199,
+        "train_samples": 13140,
+        "val_samples": 3285,
         "test_size": 0.2
       }
     },
     {
       "stage": "scaling",
-      "duration_seconds": 0.001,
-      "rows_in": 991,
-      "rows_out": 991,
+      "duration_seconds": 0.007,
+      "rows_in": 16425,
+      "rows_out": 16425,
       "columns": null,
       "extra": {
         "feature_scaler": "StandardScaler",
@@ -156,42 +171,124 @@
     },
     {
       "stage": "training",
-      "duration_seconds": 10.275,
+      "duration_seconds": 1894.002,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "epochs": 50,
-        "best_val_loss": 0.06772154090659958,
+        "epochs": 200,
+        "best_val_loss": 0.0001654577534334978,
         "device": "mps",
-        "tensorboard_log_dir": "runs/kan_20260218_225751"
+        "tensorboard_log_dir": "runs/kan_20260226_133233"
       }
     },
     {
       "stage": "evaluation",
-      "duration_seconds": 0.065,
+      "duration_seconds": 0.85,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "mae": 135.03838084196772,
-        "rmse": 171.2944120508679,
-        "r2": -0.6984058729179048
+        "mae": 1.046149819430695,
+        "rmse": 1.2312856601886188,
+        "r2": -2.8190484858976954
       }
     }
   ],
   "preprocessing_issues": [
     {
-      "severity": "info",
-      "stage": "ingestion",
-      "message": "No DatetimeIndex \u2014 gap detection and ordering checks skipped",
+      "severity": "warning",
+      "stage": "windowing",
+      "message": "Detected 4 time gap(s) across 5 contiguous segments (largest gap: 33700s)",
       "rows_affected": null
     }
   ],
   "metrics": {
-    "mae": 135.03838084196772,
-    "rmse": 171.2944120508679,
-    "r2": -0.6984058729179048
+    "mae": 1.046149819430695,
+    "rmse": 1.2312856601886188,
+    "r2": -2.8190484858976954
   },
-  "version": "kan-v1"
+  "version": "kan-1.1.0",
+  "merkle_tree": {
+    "node_type": "trained_model",
+    "content_inputs": {
+      "model_type": "kan",
+      "weights_hash": "52f949ee3949d964b381add1860d50a14531655b887e23c753dd7cc902988de3",
+      "metrics": {
+        "mae": 1.046149819430695,
+        "rmse": 1.2312856601886188,
+        "r2": -2.8190484858976954
+      },
+      "epochs": 200,
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "version": "kan-1.1.0"
+    },
+    "content_hash": "fa18f958a4bfaf80814aa42084cdb2b8e798dd273fd17c80229be970bcb0be75",
+    "children": [
+      {
+        "node_type": "split_data",
+        "content_inputs": {
+          "test_size": 0.2,
+          "train_samples": 13140,
+          "val_samples": 3285
+        },
+        "content_hash": "4ae5f5266971dce857f660e6c9e91b5e468904d1b109e5b62309a108c77e1636",
+        "children": [
+          {
+            "node_type": "preprocessed_data",
+            "content_inputs": {
+              "schema_fingerprint": "0286bb5bf5ad",
+              "feature_stats_hash": "9018f411c6aa9580",
+              "baselines": {
+                "voc_resistance": 199221.8
+              },
+              "scaler_hash": "eae29cd4aceb68dabf2faeecd686b8c3df0baad5e60335ffb86de4fc7384df70",
+              "window_size": 10,
+              "num_features": 6,
+              "sample_count": 16425
+            },
+            "content_hash": "29bc4bd10b1e8d34b173e88aec661ec4f584ea289b8587f22374d939ed5b441d",
+            "children": [
+              {
+                "node_type": "cleansed_data",
+                "content_inputs": {
+                  "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+                  "clean_row_count": 34594,
+                  "rows_dropped": 0,
+                  "issues_summary": "[warning] Detected 4 time gap(s) across 5 contiguous segments (largest gap: 33700s)"
+                },
+                "content_hash": "b46522052675076f3497ff5c2a2f48014411cdf8e71800315a491af427b8e5f4",
+                "children": [
+                  {
+                    "node_type": "raw_data",
+                    "content_inputs": {
+                      "raw_row_count": 34594,
+                      "source_type": "influxdb",
+                      "measurement": "bme688",
+                      "hours_back": null
+                    },
+                    "content_hash": "dfcc9443ceac32abd0783dd21859bd5187a1f79ebf5050461cd798e4df585be0",
+                    "children": [
+                      {
+                        "node_type": "sensor",
+                        "content_inputs": {
+                          "sensor_id": "unknown",
+                          "firmware_version": "unknown",
+                          "sensor_type": "bme680"
+                        },
+                        "content_hash": "d58fd2aa38f07adb3182dc031d25532ed3fe509fc4ebc027ebb80f07597316bb",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "merkle_root_hash": "fa18f958a4bfaf80814aa42084cdb2b8e798dd273fd17c80229be970bcb0be75"
 }

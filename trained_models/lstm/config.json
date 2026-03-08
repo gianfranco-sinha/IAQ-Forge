@@ -1,9 +1,17 @@
 {
-  "baseline_gas_resistance": 272519.4872821773,
-  "trained_date": "2026-02-15T11:40:05.543611",
+  "sensor_type": "bme680",
+  "iaq_standard": "bsec",
+  "baselines": {
+    "voc_resistance": 199221.8
+  },
+  "baseline_gas_resistance": 199221.8,
+  "trained_date": "2026-02-26T14:37:55.334659",
   "window_size": 10,
-  "mae": 68.6435658465084,
-  "rmse": 81.96904412744442,
-  "r2": 0.6613757085931478,
-  "notes": "Trained on real BSEC data with LSTM"
+  "mae": 1.1831953443181749,
+  "rmse": 1.2966682023309979,
+  "r2": -3.2354079824252286,
+  "notes": "Trained with LSTM (bme680/bsec)",
+  "version": "lstm-1.1.0",
+  "schema_fingerprint": "cbb785d46ece",
+  "merkle_root_hash": "71437be0cd84b6ab2f1df8e2262689e15575c290356c98519a500e9fb2b06bd6"
 }

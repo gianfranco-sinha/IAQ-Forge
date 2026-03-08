@@ -5,10 +5,13 @@
     "voc_resistance": 991684.8090259067
   },
   "baseline_gas_resistance": 991684.8090259067,
-  "trained_date": "2026-02-20T19:13:45.508201",
+  "trained_date": "2026-03-06T22:11:57.070594",
   "window_size": 10,
-  "mae": 121.18858621003636,
-  "rmse": 150.41120752045754,
-  "r2": -0.3095301058527178,
-  "notes": "Trained with MLP (bme680/bsec)"
+  "mae": 182.72768019398512,
+  "rmse": 227.49218928214023,
+  "r2": -1.4973969654019035,
+  "notes": "Trained with MLP (bme680/bsec)",
+  "version": "mlp-2.0.0",
+  "schema_fingerprint": "317cc3b2111a",
+  "merkle_root_hash": "5acfdf9d44c9e0975aa57c963edff1bfcf985fc7e3e66712e7c5d70572768c88"
 }

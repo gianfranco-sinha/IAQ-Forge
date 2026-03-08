@@ -40,7 +40,7 @@
       "git_commit": "9afac2c",
       "version": "kan-v1",
       "model_type": "kan",
-      "is_active": true
+      "is_active": false
     },
     {
       "timestamp": "2026-02-20T10:06:51.310534",
@@ -96,7 +96,498 @@
       "git_commit": "3544cb0",
       "version": "mlp-v6",
       "model_type": "mlp",
-      "is_active": true
+      "is_active": false
+    },
+    {
+      "timestamp": "2026-02-21T14:37:53.701451",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 143.11831166697544,
+        "rmse": 181.13211439002302,
+        "r2": -0.899092003250137
+      },
+      "git_commit": "b025512",
+      "version": "mlp-1.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-21T14:38:04.445523",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 116.48640865466561,
+        "rmse": 140.13825118960753,
+        "r2": -0.13675920242255857
+      },
+      "git_commit": "b025512",
+      "version": "mlp-1.0.1",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-21T14:39:08.686188",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 117.54317330797666,
+        "rmse": 141.03183575695542,
+        "r2": -0.15130239873170104
+      },
+      "git_commit": "b025512",
+      "version": "mlp-1.1.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-21T15:08:30.476510",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "b025512",
+      "version": "mlp-1.2.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-21T15:08:40.758619",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "b025512",
+      "version": "mlp-1.2.1",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-22T15:14:16.380893",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "e472e33",
+      "sensor_id": "bme680-test-unit",
+      "firmware_version": "2.6.1.0",
+      "version": "mlp-1.2.2",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-22T15:35:09.087581",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.2.3",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397"
+    },
+    {
+      "timestamp": "2026-02-22T15:36:15.104551",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.2.4",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "d9cdb583f4fdda544a0e0530634075e85162e25ebda73bd7dcace04221f18fde"
+    },
+    {
+      "timestamp": "2026-02-22T15:37:04.299493",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.2.5",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "ed45f5b88847d8736a4c6225bc941354cf8638abfacd6d549f0975981794e2d7"
+    },
+    {
+      "timestamp": "2026-02-23T08:47:50.071709",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.07369970955442,
+        "rmse": 143.65979977678205,
+        "r2": -0.19460851263515333
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.2.6",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "4064adcd8de553504418a524939e643ca511539a7c12a90c78f00a060e3dab29"
+    },
+    {
+      "timestamp": "2026-02-23T08:51:40.125945",
+      "data_fingerprint": "52322a1812c27c5e1aa47d87a58c2b8814e6e120143549b71e0954ee24ee02f2",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 164.33419219179,
+        "rmse": 214.7339468252414,
+        "r2": -0.9367529697312855
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.3.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "902334c74827b3cfa5943a1279d02816c6da35f71276888f9217c35eb77fd781"
+    },
+    {
+      "timestamp": "2026-02-24T12:10:36.294830",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.0707500859481,
+        "rmse": 143.63654995959436,
+        "r2": -0.19422187445141437
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.4.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "1c079613ecbefa0153abe9b7ba8e2cd3f9a0226a274e386f55cebaf5d4a8eb1c"
+    },
+    {
+      "timestamp": "2026-02-25T09:22:37.857249",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/bnn",
+      "metrics": {
+        "mae": 193.76108786834058,
+        "rmse": 249.12977018649093,
+        "r2": -2.5925791603258905
+      },
+      "git_commit": "e472e33",
+      "version": "bnn-1.0.0",
+      "model_type": "bnn",
+      "is_active": false,
+      "schema_fingerprint": "55d9ad4cecb3",
+      "merkle_root_hash": "280f9498721511caf2c11d54954499884a5c3f65f7808a38d5e10b41c4f2a0d8"
+    },
+    {
+      "timestamp": "2026-02-25T09:29:54.065489",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 119.0707500859481,
+        "rmse": 143.63654995959436,
+        "r2": -0.19422187445141437
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.4.1",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "1367b9a6cc9d2ca285ea7816685e71e530b00e31ec31e922730354fd86deaea5"
+    },
+    {
+      "timestamp": "2026-02-25T09:30:08.169071",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/kan",
+      "metrics": {
+        "mae": 115.32374278326843,
+        "rmse": 133.09959771228569,
+        "r2": -0.02543604028450419
+      },
+      "git_commit": "e472e33",
+      "version": "kan-1.0.0",
+      "model_type": "kan",
+      "is_active": false,
+      "schema_fingerprint": "0286bb5bf5ad",
+      "merkle_root_hash": "569da45ceb6f613d26104591b38a64b7676b34adffac6bbff2592468046a9740"
+    },
+    {
+      "timestamp": "2026-02-25T09:30:17.908011",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/lstm",
+      "metrics": {
+        "mae": 117.31118154021914,
+        "rmse": 141.2239351151879,
+        "r2": -0.1544409110357845
+      },
+      "git_commit": "e472e33",
+      "version": "lstm-1.0.0",
+      "model_type": "lstm",
+      "is_active": false,
+      "schema_fingerprint": "cbb785d46ece",
+      "merkle_root_hash": "b0f42941fd821180f96939961718274ee85473cf4d442222d8970f7f30323b35"
+    },
+    {
+      "timestamp": "2026-02-25T09:30:28.686675",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/cnn",
+      "metrics": {
+        "mae": 117.59159388490522,
+        "rmse": 143.0435359815987,
+        "r2": -0.1843813657927995
+      },
+      "git_commit": "e472e33",
+      "version": "cnn-1.0.0",
+      "model_type": "cnn",
+      "is_active": false,
+      "schema_fingerprint": "fd5b4af31cc0",
+      "merkle_root_hash": "1d735cabecd2e50e0eea2a756aa1ff64f62a381d63a2d4661dcc6fd69d4d410d"
+    },
+    {
+      "timestamp": "2026-02-25T09:30:38.103781",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/bnn",
+      "metrics": {
+        "mae": 193.76108786834058,
+        "rmse": 249.12977018649093,
+        "r2": -2.5925791603258905
+      },
+      "git_commit": "e472e33",
+      "version": "bnn-1.0.1",
+      "model_type": "bnn",
+      "is_active": true,
+      "schema_fingerprint": "55d9ad4cecb3",
+      "merkle_root_hash": "9c4e7b907093913d06aa52f8ecf7b1f141c8156939e11f7329f40d217658d589"
+    },
+    {
+      "timestamp": "2026-02-25T10:09:38.048830",
+      "data_fingerprint": "589c7e1c12e7570419140035abab39303baf098193b96dfb84545fc95689b8f8",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 19.983059278090224,
+        "rmse": 22.315712741515657,
+        "r2": -8.771104099615805
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.5.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "184a9093a56270ae1a348a3e589c7e91eb7182792aa26ccc3c488e2c0b050d92"
+    },
+    {
+      "timestamp": "2026-02-25T10:15:02.931815",
+      "data_fingerprint": "ac6af7c48e58e02ff50f023831eb09cb4846d11dd7c5f3741b38a08271f56432",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 0.27862581032604417,
+        "rmse": 0.37228143953754683,
+        "r2": 0.47126643267202706
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.6.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "35cd20d71d1009ac1b26b2d6c431f43c137c083774451e5e0e0cebf9450c0fee"
+    },
+    {
+      "timestamp": "2026-02-25T10:21:46.370448",
+      "data_fingerprint": "ed4c65adf8b8c77f6592f843a2eb66a0f74bac3cb0eabd36f665552fc3525d26",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 0.49977815867668396,
+        "rmse": 0.585177127160002,
+        "r2": 0.43337230602192733
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.7.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "b9614bbcb163e3b1f0f7e79db63c29bce62265a77e0407747eeb6c4e965a3640"
+    },
+    {
+      "timestamp": "2026-02-25T10:24:55.756577",
+      "data_fingerprint": "830e90319d3d1e492a602da6547e5aa5c31711d103c60ec2349d9d15ec8f68dc",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 7.029140157618421,
+        "rmse": 9.59300988015159,
+        "r2": 0.772480898401207
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.8.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "5e9ce4b6a998db666d157c7a66be468bed8bcd73d13512702b0b7843293637b0"
+    },
+    {
+      "timestamp": "2026-02-25T10:30:12.808524",
+      "data_fingerprint": "5a1e98eb2a8640c970386f66415dcd84a52f210b8f4c636241e4e345c244c866",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 7.029140157618421,
+        "rmse": 9.59300988015159,
+        "r2": 0.772480898401207
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.9.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "34e59840ce1475f581c9302a2670ec83699c711409eae0d3644fb2bf254f1f75"
+    },
+    {
+      "timestamp": "2026-02-25T10:32:34.493535",
+      "data_fingerprint": "bdde95b18df403f945e6ffae3e676ded81284f593aefd6379fe8120b38522975",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 7.029140157618421,
+        "rmse": 9.59300988015159,
+        "r2": 0.772480898401207
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.10.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "3901213baa7ed95fcb94f8bf04e10720b711607ab51c199cfdefde8a4c5a91e5"
+    },
+    {
+      "timestamp": "2026-02-26T12:19:30.525452",
+      "data_fingerprint": "52322a1812c27c5e1aa47d87a58c2b8814e6e120143549b71e0954ee24ee02f2",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 164.70389654835034,
+        "rmse": 215.1423643319087,
+        "r2": -0.9441272676787436
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.11.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "cdc7f5e42f7e28be88b26576601acef97f1703284e7ad2411639f52483fee5a7"
+    },
+    {
+      "timestamp": "2026-02-26T12:28:13.803540",
+      "data_fingerprint": "52322a1812c27c5e1aa47d87a58c2b8814e6e120143549b71e0954ee24ee02f2",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 164.70389654835034,
+        "rmse": 215.1423643319087,
+        "r2": -0.9441272676787436
+      },
+      "git_commit": "e472e33",
+      "version": "mlp-1.11.1",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "ee17a770c651e9870c00a074182e1b4a7d035982f217ede6ed47991095141400"
+    },
+    {
+      "timestamp": "2026-02-26T13:32:27.462990",
+      "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 1.3872937535673517,
+        "rmse": 1.599308988986728,
+        "r2": -5.443209985774905
+      },
+      "git_commit": "a131b51",
+      "version": "mlp-1.12.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "8417e4a0e397",
+      "merkle_root_hash": "aaa0d4db4ebc850a169ccb58d17bd1587622f1e24c0ce367f08ae9c77863d457"
+    },
+    {
+      "timestamp": "2026-02-26T14:19:49.186963",
+      "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+      "model_dir": "trained_models/kan",
+      "metrics": {
+        "mae": 1.046149819430695,
+        "rmse": 1.2312856601886188,
+        "r2": -2.8190484858976954
+      },
+      "git_commit": "a131b51",
+      "version": "kan-1.1.0",
+      "model_type": "kan",
+      "is_active": true,
+      "schema_fingerprint": "0286bb5bf5ad",
+      "merkle_root_hash": "fa18f958a4bfaf80814aa42084cdb2b8e798dd273fd17c80229be970bcb0be75"
+    },
+    {
+      "timestamp": "2026-02-26T14:37:55.361090",
+      "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+      "model_dir": "trained_models/lstm",
+      "metrics": {
+        "mae": 1.1831953443181749,
+        "rmse": 1.2966682023309979,
+        "r2": -3.2354079824252286
+      },
+      "git_commit": "a131b51",
+      "version": "lstm-1.1.0",
+      "model_type": "lstm",
+      "is_active": true,
+      "schema_fingerprint": "cbb785d46ece",
+      "merkle_root_hash": "71437be0cd84b6ab2f1df8e2262689e15575c290356c98519a500e9fb2b06bd6"
+    },
+    {
+      "timestamp": "2026-02-26T14:59:04.235852",
+      "data_fingerprint": "dfd51b9bb0e4e38f1dc92c49c62676b275b977b4b3bec7ab8db7031efd6b0496",
+      "model_dir": "trained_models/cnn",
+      "metrics": {
+        "mae": 1.7308133030257087,
+        "rmse": 1.8124772923282337,
+        "r2": -7.275279617907234
+      },
+      "git_commit": "a131b51",
+      "version": "cnn-1.1.0",
+      "model_type": "cnn",
+      "is_active": true,
+      "schema_fingerprint": "fd5b4af31cc0",
+      "merkle_root_hash": "79fc06e3f88cb07dee61139f1649e1e19c0b3e602ed2acd25452fc82821c6354"
+    },
+    {
+      "timestamp": "2026-03-06T22:11:57.083432",
+      "data_fingerprint": "7c6959ce1b7b90b0528a4dca15267353da474c797060a3e821a01062a1a3011b",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 182.72768019398512,
+        "rmse": 227.49218928214023,
+        "r2": -1.4973969654019035
+      },
+      "git_commit": "f324f7d",
+      "version": "mlp-2.0.0",
+      "model_type": "mlp",
+      "is_active": true,
+      "schema_fingerprint": "317cc3b2111a",
+      "merkle_root_hash": "5acfdf9d44c9e0975aa57c963edff1bfcf985fc7e3e66712e7c5d70572768c88"
     }
   ]
 }

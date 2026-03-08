@@ -1,5 +1,17 @@
 {
-  "baseline_resistance": 100000,
-  "trained_date": "2026-01-30",
-  "note": "DUMMY BNN MODEL FOR TESTING ONLY"
+  "sensor_type": "bme680",
+  "iaq_standard": "bsec",
+  "baselines": {
+    "voc_resistance": 991684.8090259067
+  },
+  "baseline_gas_resistance": 991684.8090259067,
+  "trained_date": "2026-02-25T09:30:38.081830",
+  "window_size": 10,
+  "mae": 193.76108786834058,
+  "rmse": 249.12977018649093,
+  "r2": -2.5925791603258905,
+  "notes": "Trained with BNN (bme680/bsec)",
+  "version": "bnn-1.0.1",
+  "schema_fingerprint": "55d9ad4cecb3",
+  "merkle_root_hash": "9c4e7b907093913d06aa52f8ecf7b1f141c8156939e11f7329f40d217658d589"
 }

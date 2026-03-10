@@ -15,17 +15,89 @@ above it are fully complete (all checkboxes ticked).
 |---|---|---|---|
 | 1 | ~~**Temporal Feature Engineering**~~ ✅ | P0 | Retrain is already required (window_size change broke all artifacts). Fully implement staleness detection, SyntheticSource timestamps, and cyclical time features before retraining. Starting any other work on top of stale artifacts is wasteful. |
 | 2 | ~~**Security Hardening**~~ ✅ (HTTPS, rate limiting, headers) | P0 | Production gaps that exist right now. Cannot responsibly expose new endpoints from LLM Readiness without first hardening the surface. |
-| 3 | **MLflow Integration** (remaining work) | P1 | Completes observability. Required before LLM Readiness so that training runs are fully auditable when the agent starts triggering them. |
-| 4 | **LLM Readiness — Phase 1** (structured internals) | P1 | Plumbing prerequisite for all agent work: config cache, InfluxDB reads, typed exceptions, `APIError`. No user-facing changes. |
-| 5 | **LLM Readiness — Phase 2** (agent tool surface) | P1 | REST endpoints that expose all components to the agent. Depends on Phase 1. |
-| 6 | **LLM Agent** | P2 | Orchestration layer. Depends on LLM Readiness Phase 1 + 2. |
-| 7 | **LLM Readiness — Phase 3** (pipeline design tools) | P2 | New endpoints for sensor inventory, pipeline spec design/validate/commit. Prerequisite for LLM-Driven Pipeline Design. |
-| 8 | **LLM-Driven Pipeline Design** | P2 | LLM as full pipeline designer (feature engineering + model selection). Depends on LLM Readiness Phase 1 + 2 + 3. |
+| 3 | ~~**Pytest Suite — Tier 1**~~ ✅ (168 tests) | P0 | Pure core: quantities, profiles, windowing, merkle, schemas. No mocking needed. |
+| 4 | ~~**Training Checkpoint & Resume**~~ ✅ | P1 | Training on real data takes 6–16h per model. Graceful SIGINT/SIGTERM, periodic checkpoint, `--resume` CLI flag. |
+| 5 | ~~**Pytest Suite — Tier 2**~~ ✅ (98 tests, 266 total) | P1 | Model forward passes, config merging, pipeline e2e with SyntheticSource, profile IO resolution. No bugs uncovered — all application code behaved correctly. |
+| 6 | **MLflow Integration** (tracing + remaining) | P1 | Completes observability. `mlflow_tracer.py` adapter subscribes to pipeline/inference callbacks — no MLflow imports in core. MCP tool calls produce full trace trees. Required before MCP server so agent-triggered runs are fully auditable. |
+| 7 | **LLM Readiness — Phase 1** (structured internals) | P1 | Plumbing prerequisite for all agent work: config cache, InfluxDB reads, typed exceptions, `StructuredResponse`. No user-facing changes. |
+| 8 | **MCP Server** | P1 | Expose all agent-facing capabilities as MCP tools. Replaces LLM Readiness Phase 2 (REST tool surface) and LLM Agent (custom orchestrator). Depends on Phase 1. |
+| 9 | **Pytest Suite — Tier 3** (IO/mocked) | P2 | Inference engine, field mapper, data sources, train_model integration. ~100 tests, needs mocking. |
+| 10 | **MCP Pipeline Design Tools** | P2 | MCP tools for sensor inventory, pipeline spec design/validate/commit. Replaces LLM Readiness Phase 3. |
+| 11 | **LLM-Driven Pipeline Design** | P2 | LLM as full pipeline designer (feature engineering + model selection). Depends on MCP Server + Pipeline Design Tools. |
+
+**Superseded items (replaced by MCP):**
+- ~~LLM Readiness — Phase 2~~ → replaced by MCP Server (item 6)
+- ~~LLM Agent~~ → replaced by MCP Server (item 6) — no custom agent loop needed; MCP clients (Claude Desktop, Claude Code) provide the orchestration layer
+- ~~LLM Readiness — Phase 3~~ → replaced by MCP Pipeline Design Tools (item 7)
 
 **Parked (no fixed order):**
 - Artifact Versioning remaining (dataset semver, migration guide) — pick up opportunistically
 - Telemetry Integrity remaining — pick up alongside LLM Readiness Phase 1
-- Sensor Onboarding remaining (background tasks) — pick up alongside LLM Readiness Phase 2
+- Sensor Onboarding remaining (background tasks) — pick up alongside MCP Server
+
+---
+
+## Pytest Suite
+
+### Automated test coverage for core business logic — P0 (Tier 1), P1 (Tier 2), P2 (Tier 3)
+
+**Current state:** 266 tests across 10 modules (Tier 1 + Tier 2 complete).
+Tier 3 (IO/mocked) remaining.
+
+**Goal:** ~340 tests across 12 modules, rolled out in three tiers ordered by
+effort-to-value ratio. 47% of testable functions are pure (no mocking needed).
+
+**Infrastructure:** ✅
+
+- [x] `tests/` directory structure: `tests/unit/`, `tests/integration/`
+- [x] `tests/conftest.py` with fixtures: `bme680_profile`, `bsec_standard`, `sample_raw_data`, `sample_reading`, `sample_timestamps`, `patched_models_base`, `model_artifact_dir`, `fast_pipeline_kwargs`
+- [x] `pytest.ini`: `testpaths = tests`, `pythonpath = .`
+- [x] Dev dependencies: `pytest`, `pytest-cov`
+
+---
+
+### Tier 1: Pure Core — ✅ DONE (168 tests)
+
+| Module | File | Tests |
+|--------|------|-------|
+| `app/quantities.py` | `tests/unit/test_quantities.py` | ~30 |
+| `app/builtin_profiles.py` | `tests/unit/test_builtin_profiles.py` | ~30 |
+| `training/utils.py` (pure fns) | `tests/unit/test_training_utils.py` | ~25 |
+| `training/merkle.py` | `tests/unit/test_merkle.py` | ~35 |
+| `app/schemas.py` | `tests/unit/test_schemas.py` | ~18 |
+| `app/profiles.py` (pure parts) | `tests/unit/test_profiles.py` | ~20 |
+
+---
+
+### Tier 2: Stateful Core — ✅ DONE (98 tests, 266 cumulative)
+
+No bugs uncovered — all application code behaved correctly.
+
+| Module | File | Tests |
+|--------|------|-------|
+| `app/models.py` | `tests/unit/test_models.py` | 40 (build_model 8, forward pass 10, BNN 4, KAN 3, IAQPredictor 15) |
+| `app/config.py` | `tests/unit/test_config.py` | 25 (load 8, get_model_config 10, training 7) |
+| `training/pipeline.py` | `tests/integration/test_pipeline.py` | 25 (PreprocessingReport 7, validation 5, e2e 13) |
+| `app/profiles.py` (IO) | `tests/unit/test_profiles_io.py` | 8 (sensor 4, standard 4) |
+
+---
+
+### Tier 3: IO/Mocked (~100 tests, ~3-4 days) — P2
+
+Requires mocking external services (InfluxDB, Ollama, HTTP).
+
+| Module | What to test | Tests |
+|--------|-------------|-------|
+| `app/inference.py` | Staleness detection, sequence validation, prior computation, Bayesian update, drift analysis, mock predictor | 35-45 |
+| `app/field_mapper.py` | Tier 1/2/3 mapping strategies, `_normalize`, `_detect_timestamp`, mock Ollama | 25-32 |
+| `training/data_sources.py` | `SyntheticSource` shape/range, `CSVDataSource` with `tmp_path`, mock InfluxDB/LabelStudio | 35-45 |
+
+**Requirements (Tier 3):**
+
+- [ ] `tests/unit/test_inference.py`: staleness flag on gap > 60s; sequence regression detected; prior from history; drift analysis warnings; mock `IAQPredictor.predict` returns known values
+- [ ] `tests/unit/test_field_mapper.py`: exact match resolves, fuzzy match with `rapidfuzz`, mock Ollama HTTP response, `_normalize` strips/lowercases
+- [ ] `tests/unit/test_data_sources.py`: `SyntheticSource.fetch` returns correct shape/columns/ranges; `CSVDataSource` reads test CSV from `tmp_path`; mock `DataFrameClient` for InfluxDB
+- [ ] Additional dev dependencies: `responses` or `respx` (for HTTP mocking), `rapidfuzz` (optional, for fuzzy tests)
 
 ---
 
@@ -111,6 +183,41 @@ run comparison, reproduction, and rollback.
 
 ---
 
+## Training Checkpoint & Resume
+
+### Pause/resume long training runs without losing progress — P1
+
+**Current state:** The training loop (`training/utils.py:train_model()`) keeps
+`best_val_loss` and model weights in memory only. No checkpoint is written to
+disk until the SAVING pipeline stage after all epochs complete. Killing a
+training run (intentionally or due to crash) loses all epoch progress.
+
+**Problem:** Training on real data from InfluxDB (430k+ windows, 200 epochs)
+takes 6–16+ hours per model depending on architecture (KAN is slowest). Five
+models trained sequentially means a full experiment run can exceed 40 hours.
+There is no way to pause and resume without restarting from epoch 0.
+
+**Goal:** Periodic checkpointing during training so that runs can be interrupted
+and resumed from the last checkpoint.
+
+**Requirements:**
+
+- [ ] Save checkpoint every N epochs (default: 20) to `trained_models/{model_type}/checkpoint.pt`
+- [ ] Checkpoint includes: `model.state_dict()`, `optimizer.state_dict()`, `scheduler.state_dict()`, `epoch`, `best_val_loss`, `best_model_state_dict`, `train_losses`, `val_losses`
+- [ ] `train_model()` accepts optional `resume_from` path — loads checkpoint and continues from saved epoch
+- [ ] `TrainingPipeline` detects existing checkpoint for current model type and offers resume
+- [ ] CLI support: `python -m iaq4j train --model kan --resume`
+- [ ] Track `best_model_state_dict` in memory (not just `best_val_loss`) so the best weights are preserved even if later epochs regress
+- [ ] Clean up checkpoint file after successful SAVING stage completion
+- [ ] Graceful interrupt handler (SIGINT/SIGTERM) — save checkpoint before exit
+
+**Nice-to-have:**
+
+- [ ] `python -m iaq4j train --model kan --checkpoint-freq 10` to configure frequency
+- [ ] Progress reporting: log estimated time remaining based on epoch durations
+
+---
+
 ## MLflow Integration
 
 ### Experiment tracking and model registry — P1
@@ -190,6 +297,70 @@ with mlflow.start_run(run_name=f"{model_type}-{version}"):
     })
 ```
 
+**MLflow Tracing — MCP tool call observability:**
+
+When the MCP server exposes training, prediction, and query tools to LLM agents,
+traces provide full visibility into what the agent triggered and what happened
+inside the system. MLflow Tracing captures parent-child span trees with timing,
+inputs/outputs, and status — ideal for multi-step MCP tool chains.
+
+Key design constraint: **MLflow is a separate observability domain.** No MLflow
+imports in `app/`, `training/pipeline.py`, or the MCP server layer. The core
+application emits events/callbacks; a dedicated MLflow adapter in
+`training/mlflow_tracer.py` consumes them and produces traces.
+
+**Architecture:**
+
+```
+MCP tool call                          MLflow
+───────────                            ──────
+mcp_server.py                          training/mlflow_tracer.py
+  │                                      │
+  ├─ calls train_single_model()          │  ← wraps with @mlflow.trace
+  │    │                                 │
+  │    ├─ pipeline.orchestrate()         │  ← span per FSM stage
+  │    │    ├─ _do_ingestion()           │     (SOURCE_ACCESS, INGESTION, ...)
+  │    │    ├─ _do_feature_eng()         │     timing + row counts in/out
+  │    │    ├─ _do_windowing()           │     gap_info, segment counts
+  │    │    ├─ _do_splitting()           │
+  │    │    ├─ _do_scaling()             │
+  │    │    ├─ _do_training()            │     per-epoch metrics
+  │    │    ├─ _do_evaluation()          │     MAE, RMSE, R²
+  │    │    └─ _do_saving()              │     version, merkle_root
+  │    │                                 │
+  │    └─ returns PipelineResult         │  ← span closed
+  │                                      │
+  └─ returns MCP ToolResult              │  ← root span closed
+```
+
+**Boundary rules:**
+- `training/pipeline.py` already emits `StageResult` via `on_stage_complete()`
+  callback. The tracer subscribes to this — no MLflow awareness in the pipeline.
+- `training/train.py` is the only file that imports `mlflow` today. The new
+  `training/mlflow_tracer.py` is the only other file that may import it.
+- The MCP server layer (`mcp_server.py`) never imports `mlflow`. It calls
+  `train_single_model()` which internally handles tracing.
+- Inference tracing (optional, later): `InferenceEngine` emits prediction events
+  via a callback; the tracer subscribes and creates inference spans. No MLflow
+  import in `app/inference.py`.
+
+**Trace hierarchy for a training MCP call:**
+
+```
+Trace: "mcp:train_model(mlp)"
+├─ Span: source_access        (12ms)
+├─ Span: ingestion             (3.2s,  rows_in=1.19M, rows_out=434k)
+├─ Span: feature_engineering   (1.1s,  features=10)
+├─ Span: windowing             (0.8s,  segments=62, windows=433k)
+├─ Span: splitting             (0.1s,  train=346k, val=87k)
+├─ Span: scaling               (0.2s)
+├─ Span: training              (5.7h,  epochs=200, best_val_loss=0.012)
+│   ├─ Metric: train_loss      (per epoch)
+│   └─ Metric: val_loss        (per epoch)
+├─ Span: evaluation            (2.1s,  mae=27.54, r2=0.20)
+└─ Span: saving                (0.4s,  version=mlp-2.1.0, merkle=a3f2...)
+```
+
 **Open design questions (to decide before implementation):**
 
 1. **Deployment mode:** Local file-based (`mlruns/` directory) vs MLflow Tracking
@@ -211,15 +382,23 @@ with mlflow.start_run(run_name=f"{model_type}-{version}"):
    MLflow artifact store or keep loading from `trained_models/`? Could
    support both with a config flag.
 
+6. **Inference tracing granularity:** Trace every prediction request (high
+   volume, ~3s intervals) or only on-demand / sampled? Recommendation: off
+   by default, enabled via config flag or MCP tool parameter.
+
 **Requirements:**
 
-- [ ] Add `mlflow` to dependencies
-- [ ] Wrap `train_single_model()` with `mlflow.start_run()` context manager
-- [ ] Log params: model config, sensor type, IAQ standard, schema fingerprint, data fingerprint, git commit
-- [ ] Log metrics per epoch: train_loss, val_loss
-- [ ] Log final metrics: MAE, RMSE, R² (or whatever evaluation produces)
-- [ ] Log artifacts: model.pt, scalers, data_manifest.json
-- [ ] Log tags: version (semver), schema_fingerprint, merkle_root
+- [x] Add `mlflow` to dependencies
+- [x] Wrap `train_single_model()` with `mlflow.start_run()` context manager
+- [x] Log params: model config, sensor type, IAQ standard, schema fingerprint, data fingerprint, git commit
+- [x] Log metrics per epoch: train_loss, val_loss
+- [x] Log final metrics: MAE, RMSE, R² (or whatever evaluation produces)
+- [x] Log artifacts: model.pt, scalers, data_manifest.json
+- [x] Log tags: version (semver), schema_fingerprint, merkle_root
+- [ ] Create `training/mlflow_tracer.py` — adapter that subscribes to pipeline callbacks and produces MLflow traces/spans
+- [ ] Add `@mlflow.trace` wrapper in `train_single_model()` as root span
+- [ ] Add per-stage child spans via `on_stage_complete()` callback (no MLflow in pipeline.py)
+- [ ] Add inference trace support via callback in `InferenceEngine` (no MLflow in app/inference.py)
 - [ ] Decide deployment mode (local file vs tracking server)
 - [ ] Decide layer vs replace strategy for MANIFEST.json
 - [ ] Update `python -m iaq4j runs` to query MLflow instead of (or in addition to) MANIFEST
@@ -790,8 +969,43 @@ to parse failures programmatically.
 
 | Change | File | What |
 |--------|------|------|
-| `APIError` Pydantic model | `app/schemas.py` | `error_code`, `detail`, `timestamp`, optional `context` dict |
-| Exception handlers | `app/main.py` | Map known exceptions to `APIError` responses |
+| `StructuredResponse` Pydantic model | `app/schemas.py` | Unified response envelope for MCP tools and REST: `status`, `result`, `warnings`, `error_code`, `detail`, `context`, `next_steps` |
+| Exception handlers | `app/main.py` | Map known exceptions to `StructuredResponse` |
+
+**D.1. Severity-graded responses**
+
+Every tool/endpoint response uses `StructuredResponse` with a status field:
+
+| Status | Meaning | LLM action |
+|--------|---------|------------|
+| `success` | Completed normally | Use result |
+| `warning` | Completed with issues | Report to user, maybe adjust |
+| `partial` | Some results, some failures | Use what worked, explain gaps |
+| `error` | Failed, but recoverable | Try alternative approach using `next_steps` |
+| `fatal` | Failed, system-level issue | Escalate to user immediately |
+
+**D.2. Actionable `next_steps` on every non-success response**
+
+Errors and warnings include a list of concrete suggestions the LLM can act on.
+
+**D.3. Warning aggregation from `PreprocessingReport`**
+
+The pipeline already tracks issues via `PreprocessingReport` but they are only
+logged. `StructuredResponse` surfaces them as a `warnings` list so that MCP
+tools and REST endpoints can return them to the caller.
+
+**D.4. Domain-specific error codes**
+
+| Code | When | Suggested recovery |
+|------|------|-------------------|
+| `NO_DATA` | InfluxDB query returned empty | Widen time range or check measurement name |
+| `INSUFFICIENT_DATA` | Too few samples for window_size | Use smaller window or different model type |
+| `SCHEMA_MISMATCH` | Model expects different features | Retrain or check field mapping |
+| `INFLUX_UNREACHABLE` | Can't connect to InfluxDB | Check host/port/network |
+| `TRAINING_DIVERGED` | Loss went to NaN/inf | Reduce learning rate |
+| `NEGATIVE_R2` | Model worse than predicting the mean | Check data quality, try different architecture |
+| `STALE_CONFIG` | Config cache out of sync | Invalidate and retry |
+| `CHECKPOINT_NOT_FOUND` | Resume requested but no checkpoint exists | Start fresh training |
 
 **Requirements (Phase 1):**
 
@@ -801,8 +1015,11 @@ to parse failures programmatically.
 - [ ] `app/database.py`: add `query_prediction_vs_actual(time_range, model_type)` for evaluation
 - [ ] `training/train.py`: stop catching all exceptions; re-raise as typed `PipelineError`
 - [ ] `training/pipeline.py`: add `FailureInfo` dataclass with stage, error_code, suggestion
-- [ ] `app/schemas.py`: add `APIError` Pydantic model with `error_code`, `detail`, `timestamp`
-- [ ] `app/main.py`: add exception handlers that return structured `APIError` responses
+- [ ] `training/pipeline.py`: `PipelineResult` includes `warnings` list from `PreprocessingReport`
+- [ ] `app/schemas.py`: add `StructuredResponse` Pydantic model with `status` (success/warning/partial/error/fatal), `result`, `warnings`, `error_code`, `detail`, `context` dict, `next_steps` list
+- [ ] `app/schemas.py`: add `DomainErrorCode` enum with all domain error codes from table above
+- [ ] `app/main.py`: add exception handlers that return `StructuredResponse`
+- [ ] All existing REST endpoints adopt `StructuredResponse` envelope (backward-compatible: `result` field holds current response body)
 
 ---
 
@@ -906,26 +1123,127 @@ this, the LLM is guessing about data availability.
 
 ---
 
-#### Phase 4: Agent Loop
+#### Phase 4: ~~Agent Loop~~ → Superseded by MCP Server
 
-Phase 4 is the existing **LLM Agent** roadmap item below. It depends on
-Phase 1 (structured internals) and Phase 2 (REST tool surface) being
-complete. The agent's tool registry maps 1:1 to Phase 2 endpoints.
+~~Phase 4 is the existing **LLM Agent** roadmap item below.~~
 
-The LLM-Driven Pipeline Design feature depends on Phase 1 + 2 + 3.
+**This phase is superseded by the MCP Server.** MCP clients (Claude Desktop,
+Claude Code, any MCP-compatible LLM) provide the orchestration layer natively.
+No custom agent loop is needed. The tool registry maps 1:1 to MCP tools
+instead of REST endpoints.
 
 ---
 
-## LLM Agent
+## MCP Server
 
-### Agentic orchestrator for data ingestion, training, and insight — P2
+### Model Context Protocol server for LLM-driven IAQ operations — P1
 
-**Goal:** An embedded LLM agent that acts as the system's orchestration layer.
+**Depends on:** LLM Readiness Phase 1 (structured internals)
+
+**Supersedes:** LLM Readiness Phase 2 (REST tool surface), LLM Agent (custom
+orchestrator). MCP eliminates the need to build REST endpoints as an
+intermediate layer and removes the need for a custom agent loop — MCP clients
+handle orchestration natively.
+
+**Current state:** The app has a FastAPI REST API serving real sensor clients
+(Node-RED, test_client.py). The roadmap previously planned 12+ REST endpoints
+as an agent tool surface, plus a custom LLM agent wrapper to call them.
+
+**Goal:** Expose all agent-facing capabilities as MCP tools via a standalone
+MCP server process. The FastAPI REST API remains for sensor clients. Both
+import the same core modules (`app.*`, `training.*`).
+
+**Architecture:**
+
+```
+Sensor clients ──► FastAPI (REST API) ──► app.* / training.*
+                                              ▲
+LLM clients ─────► MCP Server (stdio/SSE) ───┘
+(Claude Desktop,
+ Claude Code,
+ any MCP client)
+```
+
+- **FastAPI** stays unchanged — serves sensors, predictions, health checks
+- **MCP Server** is a separate entry point (`mcp_server.py` or `python -m iaq4j mcp`)
+- Both share the same core: models, config, profiles, InfluxDB, training pipeline
+- MCP transport: stdio (for Claude Desktop/Code) or SSE (for remote clients)
+
+**MCP tool registry — maps 1:1 to the planned Phase 2 endpoints:**
+
+| MCP Tool | Replaces REST Endpoint | Purpose |
+|----------|----------------------|---------|
+| `get_sensor_profiles` | `GET /profiles/sensors` | List sensor profiles with features, quantities, ranges |
+| `get_iaq_standards` | `GET /profiles/standards` | List IAQ standards with categories and scale ranges |
+| `get_quantities` | `GET /quantities` | Physical quantity registry (names, units, aliases, ranges) |
+| `get_model_info` | `GET /models/{type}/info` | Artifact metadata: version, fingerprint, metrics, lineage |
+| `get_manifest` | `GET /models/manifest` | Central MANIFEST.json with all model versions |
+| `query_predictions` | `GET /history/predictions` | Historical predictions from InfluxDB (time range, model type) |
+| `query_readings` | `GET /history/readings` | Historical raw sensor readings from InfluxDB |
+| `evaluate_accuracy` | `GET /history/accuracy` | Predicted vs actual IAQ comparison |
+| `get_config` | `GET /config` | Active model + database config (secrets redacted) |
+| `start_training` | `POST /training/start` | Trigger training as background task |
+| `get_training_status` | `GET /training/{job_id}` | Poll training job status and results |
+| `get_audit_log` | `GET /audit` | Queryable mutation trail |
+| `predict` | `POST /predict` | Run prediction with given sensor readings |
+| `compare_models` | `GET /predict/compare` | Compare predictions across all model types |
+| `select_model` | `POST /model/select` | Switch active model type |
+| `map_fields` | `POST /sensors/register` | Semantic field mapping (exact → fuzzy → LLM) |
+| `list_sensors` | `GET /sensors` | List registered sensor mappings |
+
+**MCP resources (read-only data the LLM can inspect):**
+
+| Resource | Content |
+|----------|---------|
+| `iaq4j://config` | Active `model_config.yaml` (secrets redacted) |
+| `iaq4j://manifest` | `MANIFEST.json` with all model versions and metrics |
+| `iaq4j://quantities` | `quantities.yaml` physical quantity registry |
+| `iaq4j://profile/{sensor_type}` | Sensor profile details (features, ranges, engineering) |
+
+**Requirements:**
+
+- [ ] Add `mcp` Python SDK dependency
+- [ ] Create `mcp_server.py` entry point with stdio transport
+- [ ] Register all tools from tool registry table above with typed Pydantic input schemas
+- [ ] Register MCP resources for config, manifest, quantities, profiles
+- [ ] Tools call core functions directly (not via HTTP to FastAPI)
+- [ ] `start_training` tool runs training in background thread, returns job ID
+- [ ] `get_training_status` tool tracks background training jobs
+- [ ] All tool responses return structured JSON (reuse existing Pydantic schemas)
+- [ ] Secrets redacted from all config/database tool responses
+- [ ] Error responses use structured format (reuse `APIError` from Phase 1)
+- [ ] CLI support: `python -m iaq4j mcp` starts the MCP server
+- [ ] Claude Desktop config example in README or `deploy/` directory
+- [ ] SSE transport option for remote MCP clients (optional, can be deferred)
+
+**Why MCP over custom agent:**
+
+| Concern | Custom Agent (old plan) | MCP Server (new plan) |
+|---------|----------------------|---------------------|
+| Orchestration logic | Must build and maintain | LLM client provides it |
+| Tool discovery | Manual tool registry | MCP protocol handles it |
+| Multi-turn reasoning | Must implement | Native to LLM client |
+| Client compatibility | Only our `/agent/ask` endpoint | Claude Desktop, Claude Code, any MCP client |
+| REST endpoints needed | 12+ new endpoints | Zero — tools call core directly |
+| Maintenance surface | Agent code + REST endpoints + tool wrappers | MCP server + tool definitions |
+
+---
+
+## ~~LLM Agent~~ (Superseded by MCP Server)
+
+### ~~Agentic orchestrator for data ingestion, training, and insight~~ — ~~P2~~ Superseded
+
+> **This item is superseded by the MCP Server (above).** MCP clients provide
+> the orchestration layer natively. The tool registry below is preserved for
+> reference — it informed the MCP tool design. No custom agent loop will be
+> built.
+
+**~~Goal:~~** ~~An embedded LLM agent that acts as the system's orchestration layer.
 Users express intent in natural language; the agent coordinates data ingestion,
 field mapping, training, evaluation, and reporting by calling existing
-components as tools.
+components as tools.~~
 
-**Depends on:** LLM Readiness Phase 1 + Phase 2 (above), Semantic field mapping
+**~~Depends on:~~** ~~LLM Readiness Phase 1 + Phase 2 (above), Semantic field mapping~~
 
 **Prerequisites from LLM Readiness (must be complete before starting):**
 

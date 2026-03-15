@@ -17,6 +17,12 @@ python -m iaq4j train --model mlp --epochs 200
 python -m iaq4j train --model all --epochs 50
 python -m iaq4j train --model mlp --data-source influxdb  # real data
 python -m iaq4j train --model mlp --data-source csv --csv-path data.csv  # CSV file
+
+# Data caching (faster subsequent runs)
+python -m iaq4j train --model mlp --data-source influxdb --cache  # first run fetches + caches
+python -m iaq4j train --model mlp --data-source influxdb --cache  # subsequent runs use cache
+python -m iaq4j cache --list  # list cached entries
+python -m iaq4j cache --clear  # clear all cached data
 python -m iaq4j list
 python -m iaq4j version                             # show active semver + metrics
 python -m iaq4j verify [--model mlp]                # verify Merkle tree provenance
@@ -69,7 +75,7 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 
 **Training pipeline** (`training/pipeline.py`): FSM with stages: SOURCE_ACCESS → INGESTION → FEATURE_ENGINEERING → WINDOWING → SPLITTING → SCALING → TRAINING → EVALUATION → SAVING. Each stage emits a `StageResult`. Data cleaning issues tracked in `PreprocessingReport`. Chronological train/val split (no shuffling) to prevent temporal data leakage. Data provenance captured per run: SHA256 data fingerprint, git commit, feature statistics, config snapshot.
 
-**Data sources** (`training/data_sources.py`): `DataSource` ABC with four implementations: `SyntheticSource` (default — generates physically plausible random readings), `InfluxDBSource` (reads from `iaq_readings` measurement), `CSVDataSource` (flat CSV files), `LabelStudioDataSource` (exports annotated projects from Label Studio — validates connectivity, exports via `/api/projects/{id}/export?exportType=JSON`, applies annotation resolution: `iaq_corrected` Number tag overrides target, `reject` Choices tag excludes task, unannotated tasks keep original value; applies field mapping, quality filtering, and optional DatetimeIndex).
+**Data sources** (`training/data_sources.py`): `DataSource` ABC with four implementations: `SyntheticSource` (default — generates physically plausible random readings), `InfluxDBSource` (reads from `iaq_readings` measurement), `CSVDataSource` (flat CSV files), `LabelStudioDataSource` (exports annotated projects from Label Studio — validates connectivity, exports via `/api/projects/{id}/export?exportType=JSON`, applies annotation resolution: `iaq_corrected` Number tag overrides target, `reject` Choices tag excludes task, unannotated tasks keep original value; applies field mapping, quality filtering, and optional DatetimeIndex). InfluxDBSource supports optional caching (`cache=True` param) — saves fetched data to parquet for faster subsequent runs.
 
 **FastAPI service** (`app/main.py`): loads all 5 model types at startup into global `predictors` and `inference_engines` dicts. Active model switchable via `/model/select`. Predictions optionally written to InfluxDB. OpenAPI schema downgraded from 3.1 to 3.0.3 for Swagger UI compatibility.
 

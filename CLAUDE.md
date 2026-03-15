@@ -98,6 +98,8 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 - **`iaq_actual`**: optional ground-truth field on `SensorReading`, persisted to InfluxDB alongside predictions for evaluation.
 - **Model artifacts**: `model.pt` (weights), `config.json` (architecture + sensor_type + iaq_standard + baselines + semver + schema_fingerprint), `feature_scaler.pkl`, `target_scaler.pkl`, `MANIFEST.json` (data lineage with version, fingerprint, metrics), `data_manifest.json` (Merkle tree provenance).
 - **Artifact semver**: format `{model_type}-{MAJOR}.{MINOR}.{PATCH}`. MAJOR on schema change, MINOR on retrain/metrics change, PATCH on metadata-only. `schema_fingerprint` is SHA256[:12] of (sensor_type, iaq_standard, window_size, num_features, model_type).
+
+- **Training checkpoint & resume**: CLI `--resume` flag loads `trained_models/{model_type}/checkpoint.pt` if it exists. Checkpoint saves: epoch, model/optimizer/scheduler state, loss histories. Auto-saved every `checkpoint_freq` epochs (default: 20) and on interrupt (Ctrl+C). Checkpoint deleted on successful completion. Config: `model_config.yaml` → `training.checkpoint_freq`.
 - **Merkle tree**: 6-level chain (Sensor → RawData → CleansedData → PreprocessedData → SplitData → TrainedModel) in `training/merkle.py`. Root hash stored in `config.json`, `MANIFEST.json`, `data_manifest.json`. Verify with `python -m iaq4j verify`.
 
 ## Conventions

@@ -1,7 +1,11 @@
 """Pluggable data sources for the training pipeline."""
 
+import hashlib
+import json
 import logging
+import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -52,6 +56,8 @@ class InfluxDBSource(DataSource):
         min_iaq_accuracy=2,
         database=None,
         max_records=None,
+        cache: bool = False,
+        cache_dir: str = "cache",
     ):
         self.measurement = measurement
         self.hours_back = hours_back
@@ -59,6 +65,44 @@ class InfluxDBSource(DataSource):
         self._database = database
         self._max_records = max_records
         self._client = None
+        self._cache_enabled = cache
+        self._cache_dir = Path(cache_dir)
+
+    def _get_cache_key(self) -> str:
+        """Generate a unique cache key based on source parameters."""
+        params = {
+            "measurement": self.measurement,
+            "hours_back": self.hours_back,
+            "min_iaq_accuracy": self.min_iaq_accuracy,
+            "database": self._database,
+            "max_records": self._max_records,
+        }
+        params_str = json.dumps(params, sort_keys=True)
+        return hashlib.sha256(params_str.encode()).hexdigest()[:16]
+
+    def _cache_path(self) -> Path:
+        """Get the cache file path for this source."""
+        key = self._get_cache_key()
+        return self._cache_dir / f"influxdb_{key}.parquet"
+
+    def _load_from_cache(self) -> Optional[pd.DataFrame]:
+        """Load DataFrame from cache if available."""
+        if not self._cache_enabled:
+            return None
+        cache_file = self._cache_path()
+        if cache_file.exists():
+            logger.info("Loading data from cache: %s", cache_file)
+            return pd.read_parquet(cache_file)
+        return None
+
+    def _save_to_cache(self, df: pd.DataFrame) -> None:
+        """Save DataFrame to cache."""
+        if not self._cache_enabled:
+            return
+        cache_file = self._cache_path()
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        logger.info("Saving data to cache: %s", cache_file)
+        df.to_parquet(cache_file)
 
     @property
     def name(self) -> str:
@@ -92,6 +136,11 @@ class InfluxDBSource(DataSource):
 
     def fetch(self) -> pd.DataFrame:
         """Fetch sensor data from InfluxDB, filter by quality column."""
+        cached = self._load_from_cache()
+        if cached is not None:
+            logger.info("Using cached data: %d rows", len(cached))
+            return cached
+
         if self._client is None:
             raise RuntimeError("validate() must be called before fetch()")
 
@@ -145,6 +194,7 @@ class InfluxDBSource(DataSource):
             df.index.max(),
         )
 
+        self._save_to_cache(df)
         return df
 
     @property
@@ -294,6 +344,7 @@ class LabelStudioDataSource(DataSource):
                 label_studio.api_key in config.
         """
         from app.config import settings
+
         ls_cfg = settings.get_label_studio_config()
 
         self._url = (url or ls_cfg["url"]).rstrip("/")
@@ -329,8 +380,7 @@ class LabelStudioDataSource(DataSource):
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as e:
             raise ConnectionError(
-                f"Cannot reach Label Studio at {self._url}. "
-                f"Is it running? ({e})"
+                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})"
             ) from e
         except requests.exceptions.HTTPError as e:
             raise ConnectionError(
@@ -453,7 +503,8 @@ class LabelStudioDataSource(DataSource):
 
             # ── Apply IAQ target override or track unannotated ─────────────
             active_annotations = [
-                a for a in annotations
+                a
+                for a in annotations
                 if not a.get("was_cancelled") and not a.get("skipped")
             ]
             if iaq_override is not None:
@@ -671,10 +722,7 @@ class SyntheticSource(DataSource):
         scale_lo, scale_hi = standard.scale_range
         if has_physics:
             # IAQ = f(voc_resistance, humidity)
-            iaq = (
-                25.0
-                + 120.0 * (np.log(200_000) - np.log(voc_resistance))
-            )
+            iaq = 25.0 + 120.0 * (np.log(200_000) - np.log(voc_resistance))
             # Humidity penalty: discomfort at extremes
             iaq += np.where(humidity > 60, 0.5 * (humidity - 60), 0.0)
             iaq += np.where(humidity < 35, 0.3 * (35 - humidity), 0.0)

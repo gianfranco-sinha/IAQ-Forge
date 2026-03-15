@@ -94,6 +94,11 @@ def create_parser():
         action="store_true",
         help="Resume training from last checkpoint",
     )
+    train_parser.add_argument(
+        "--cache",
+        action="store_true",
+        help="Enable caching of InfluxDB data for faster subsequent runs",
+    )
 
     # List models command
     list_parser = subparsers.add_parser(
@@ -181,6 +186,11 @@ def create_parser():
         default=2000,
         help="Number of synthetic samples (default: 2000)",
     )
+    drift_eval_parser.add_argument(
+        "--cache",
+        action="store_true",
+        help="Enable caching of InfluxDB data for faster subsequent runs",
+    )
 
     # Map fields command
     map_parser = subparsers.add_parser(
@@ -220,6 +230,25 @@ def create_parser():
         "-y",
         action="store_true",
         help="Skip interactive confirmation (accept mapping automatically)",
+    )
+
+    # Cache command
+    cache_parser = subparsers.add_parser("cache", help="Manage cached InfluxDB data")
+    cache_parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear all cached data",
+    )
+    cache_parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List cached entries with metadata",
+    )
+    cache_parser.add_argument(
+        "--dir",
+        type=str,
+        default="cache",
+        help="Cache directory (default: cache)",
     )
 
     return parser
@@ -324,6 +353,7 @@ def main():
                     database=args.database,
                     max_records=args.max_records,
                     hours_back=args.hours_back,
+                    cache=args.cache,
                 )
             elif args.data_source == "csv":
                 if not args.csv_path:
@@ -494,6 +524,7 @@ def main():
             output_path=args.output,
             num_samples=args.num_samples,
             database=args.database,
+            cache=args.cache,
         )
 
     elif args.command == "map-fields":
@@ -546,6 +577,32 @@ def main():
                 yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
 
             print(f"\nMapping saved to {config_path} under sensor.field_mapping")
+
+    elif args.command == "cache":
+        cache_dir = Path(args.dir)
+        if args.clear:
+            if cache_dir.exists():
+                import shutil
+
+                shutil.rmtree(cache_dir)
+                print(f"Cache cleared: {cache_dir}")
+            else:
+                print(f"Cache directory does not exist: {cache_dir}")
+        elif args.list:
+            if not cache_dir.exists():
+                print(f"No cache entries found: {cache_dir}")
+                return
+            print(f"Cache directory: {cache_dir}")
+            print("-" * 50)
+            for f in sorted(cache_dir.glob("*.parquet")):
+                stat = f.stat()
+                size_kb = stat.st_size / 1024
+                mtime = pd.Timestamp(stat.st_mtime, unit="s")
+                print(f"  {f.name}  {size_kb:.1f} KB  {mtime}")
+            print("-" * 50)
+            print(f"Total: {len(list(cache_dir.glob('*.parquet')))} entries")
+        else:
+            parser.print_help()
 
 
 if __name__ == "__main__":

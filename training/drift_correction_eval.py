@@ -62,12 +62,13 @@ def _fetch_data(
     data_source: str,
     num_samples: int = 2000,
     database: Optional[str] = None,
+    cache: bool = False,
 ) -> pd.DataFrame:
     """Fetch evaluation data from the specified source."""
     if data_source == "influxdb":
         from training.data_sources import InfluxDBSource
 
-        source = InfluxDBSource(database=database)
+        source = InfluxDBSource(database=database, cache=cache)
         source.validate()
         df = source.fetch()
         source.close()
@@ -122,7 +123,9 @@ def _apply_correction_to_df(
             else:
                 coeff = coefficients.get(feat)
                 if coeff is not None:
-                    corrected[feat] = corrected[feat] - coeff.trend_slope_per_day * age_days
+                    corrected[feat] = (
+                        corrected[feat] - coeff.trend_slope_per_day * age_days
+                    )
 
     return corrected
 
@@ -139,9 +142,7 @@ def _process_and_evaluate(
     raw = df[profile.raw_features].values
     baselines = profile.compute_baselines(raw)
 
-    timestamps = (
-        df.index.values if isinstance(df.index, pd.DatetimeIndex) else None
-    )
+    timestamps = df.index.values if isinstance(df.index, pd.DatetimeIndex) else None
     features = profile.engineer_features(raw, baselines, timestamps=timestamps)
     targets = df[standard.target_column].values
 
@@ -200,7 +201,7 @@ def _batched_evaluate(model, X_val, y_val, target_scaler, device, batch_size=409
     all_preds = []
     with torch.no_grad():
         for i in range(0, len(X_val), batch_size):
-            batch = torch.FloatTensor(X_val[i:i + batch_size]).to(device)
+            batch = torch.FloatTensor(X_val[i : i + batch_size]).to(device)
             preds = model(batch).cpu().numpy()
             all_preds.append(preds)
 
@@ -221,6 +222,7 @@ def run_evaluation(
     output_path: Optional[str] = None,
     num_samples: int = 2000,
     database: Optional[str] = None,
+    cache: bool = False,
 ) -> Dict:
     """Run drift correction evaluation across all models and modes.
 
@@ -238,7 +240,9 @@ def run_evaluation(
 
     # Fetch data
     print(f"Fetching {data_source} data...")
-    df = _fetch_data(data_source, num_samples=num_samples, database=database)
+    df = _fetch_data(
+        data_source, num_samples=num_samples, database=database, cache=cache
+    )
     print(f"  {len(df)} samples loaded")
 
     profile = get_sensor_profile()
@@ -250,8 +254,10 @@ def run_evaluation(
         age_end = compute_sensor_age_days(sensor_start, pd.Timestamp(df.index[-1]))
         print(f"  Sensor start: {sensor_start.date()}")
         print(f"  Data range: {df.index[0].date()} to {df.index[-1].date()}")
-        print(f"  Sensor age range: {age_start:.0f} to {age_end:.0f} days "
-              f"({age_start / 365.25:.1f} to {age_end / 365.25:.1f} yr)")
+        print(
+            f"  Sensor age range: {age_start:.0f} to {age_end:.0f} days "
+            f"({age_start / 365.25:.1f} to {age_end / 365.25:.1f} yr)"
+        )
     else:
         age_start = 0.0
         age_end = 0.0
@@ -273,8 +279,12 @@ def run_evaluation(
                 df, profile.raw_features, mode, sensor_start, coefficients
             )
             metrics = _process_and_evaluate(
-                corrected_df, predictor.model, model_type,
-                profile, standard, window_size,
+                corrected_df,
+                predictor.model,
+                model_type,
+                profile,
+                standard,
+                window_size,
             )
             model_results[mode] = metrics
 
@@ -296,9 +306,11 @@ def _print_results_table(results: dict, sensor_start: pd.Timestamp, df: pd.DataF
     print("Drift Correction Evaluation Results")
     if isinstance(df.index, pd.DatetimeIndex) and len(df.index) > 0:
         age_end = compute_sensor_age_days(sensor_start, pd.Timestamp(df.index[-1]))
-        print(f"Sensor start: {sensor_start.date()}, "
-              f"last reading: {df.index[-1].date()}, "
-              f"max age: {age_end:.0f} days ({age_end / 365.25:.1f} yr)")
+        print(
+            f"Sensor start: {sensor_start.date()}, "
+            f"last reading: {df.index[-1].date()}, "
+            f"max age: {age_end:.0f} days ({age_end / 365.25:.1f} yr)"
+        )
     print(f"{'=' * 80}")
 
     header = f"{'Model':<6} {'Mode':<18} {'MAE':>8} {'RMSE':>8} {'R2':>10}"
@@ -310,8 +322,14 @@ def _print_results_table(results: dict, sensor_start: pd.Timestamp, df: pd.DataF
             continue
         for mode in CORRECTION_MODES:
             m = results[model_type].get(mode, {})
-            mae = f"{m['mae']:.4f}" if not np.isnan(m.get("mae", float("nan"))) else "N/A"
-            rmse = f"{m['rmse']:.4f}" if not np.isnan(m.get("rmse", float("nan"))) else "N/A"
+            mae = (
+                f"{m['mae']:.4f}" if not np.isnan(m.get("mae", float("nan"))) else "N/A"
+            )
+            rmse = (
+                f"{m['rmse']:.4f}"
+                if not np.isnan(m.get("rmse", float("nan")))
+                else "N/A"
+            )
             r2 = f"{m['r2']:.6f}" if not np.isnan(m.get("r2", float("nan"))) else "N/A"
             print(f"{model_type:<6} {mode:<18} {mae:>8} {rmse:>8} {r2:>10}")
         print()

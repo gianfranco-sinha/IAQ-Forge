@@ -15,11 +15,10 @@ python-multipart==0.0.6
 # ============================================================================
 # Deep Learning - PyTorch Stack
 # ============================================================================
-# PyTorch 2.1.2 is the recommended version for Python 3.9
-# Compatible with CUDA 11.8 or 12.1 if GPU is available
-torch==2.1.2
-torchvision==0.16.2
-torchaudio==2.1.2
+# PyTorch 2.9.x for Python 3.14 (Apple Silicon MPS supported)
+torch>=2.9.0
+torchvision>=0.24.0
+torchaudio>=2.9.0
 
 # ============================================================================
 # Machine Learning & Data Science
@@ -51,16 +50,8 @@ tqdm==4.67.1
 # ============================================================================
 # KAN (Kolmogorov-Arnold Networks)
 # ============================================================================
-# CRITICAL: efficient-kan MUST be installed separately AFTER other packages
-# This library ONLY works with Python 3.9 or earlier
-#
-# Installation command:
-# pip install git+https://github.com/Blealtan/efficient-kan.git
-#
-# Alternative (if above fails):
-# git clone https://github.com/Blealtan/efficient-kan.git
-# cd efficient-kan
-# pip install -e .
+# KAN is vendored in app/kan.py - do NOT pip install efficient-kan
+# See app/kan.py for the vendored implementation
 # ============================================================================
 
 # ============================================================================

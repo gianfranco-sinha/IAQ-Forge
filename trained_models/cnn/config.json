@@ -2,16 +2,34 @@
   "sensor_type": "bme680",
   "iaq_standard": "bsec",
   "baselines": {
-    "voc_resistance": 101566.29942090978
+    "voc_resistance": 162798.09,
+    "baseline_24h": 164814.31296414978,
+    "baseline_7d": 199921.90999996764
   },
-  "baseline_gas_resistance": 101566.29942090978,
-  "trained_date": "2026-03-08T11:05:02.481550",
+  "trained_date": "2026-03-20T08:58:02.912412",
   "window_size": 30,
-  "mae": 36.7960847399679,
-  "rmse": 50.54910164854997,
-  "r2": 0.32894847943816574,
+  "mae": 31.578073124113228,
+  "rmse": 40.42509124899328,
+  "r2": -0.0015704442793602613,
   "notes": "Trained with CNN (bme680/bsec)",
-  "version": "cnn-2.4.0",
-  "schema_fingerprint": "d2c102d1d635",
-  "merkle_root_hash": "b60a37507bf8e79ac8f678100dac0636f1622e51d569a4d76cc729f57cf6961a"
+  "feature_names": [
+    "temperature",
+    "rel_humidity",
+    "pressure",
+    "voc_resistance",
+    "abs_humidity",
+    "baseline_24h",
+    "gas_ratio_24h",
+    "log_ratio_24h",
+    "baseline_7d",
+    "gas_ratio_7d",
+    "log_ratio_7d",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos"
+  ],
+  "version": "cnn-3.0.0",
+  "schema_fingerprint": "623ba11e6c12",
+  "merkle_root_hash": "c2c41b8bdd036a01f1ff8b4bc3fc6fba1682533d28d157321c5e2aa1da8c300d"
 }

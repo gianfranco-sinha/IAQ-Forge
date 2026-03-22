@@ -2,16 +2,34 @@
   "sensor_type": "bme680",
   "iaq_standard": "bsec",
   "baselines": {
-    "voc_resistance": 101566.29942090978
+    "voc_resistance": 161718.25,
+    "baseline_24h": 164814.31296414978,
+    "baseline_7d": 199921.90999996764
   },
-  "baseline_gas_resistance": 101566.29942090978,
-  "trained_date": "2026-03-09T19:59:00.695437",
+  "trained_date": "2026-03-19T18:20:51.683745",
   "window_size": 10,
-  "mae": 37.431320670632296,
-  "rmse": 47.37507150081218,
-  "r2": 0.4093960066357891,
+  "mae": 34.592068239710876,
+  "rmse": 46.95973215777642,
+  "r2": -0.34566697667432167,
   "notes": "Trained with KAN (bme680/bsec)",
-  "version": "kan-2.5.0",
-  "schema_fingerprint": "d61cb920844a",
-  "merkle_root_hash": "48d43161f9aeec781e946ce31c7ed2932279f705ca5e05f473929d7c86f6a94a"
+  "feature_names": [
+    "temperature",
+    "rel_humidity",
+    "pressure",
+    "voc_resistance",
+    "abs_humidity",
+    "baseline_24h",
+    "gas_ratio_24h",
+    "log_ratio_24h",
+    "baseline_7d",
+    "gas_ratio_7d",
+    "log_ratio_7d",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos"
+  ],
+  "version": "kan-3.0.0",
+  "schema_fingerprint": "5aeae6066145",
+  "merkle_root_hash": "8970d89687bbd21e2ce294020b3d3d61a5fc8e354ed9f53b1ced8c17fa565372"
 }

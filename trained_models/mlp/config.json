@@ -2,16 +2,34 @@
   "sensor_type": "bme680",
   "iaq_standard": "bsec",
   "baselines": {
-    "voc_resistance": 101566.29942090978
+    "voc_resistance": 161718.25,
+    "baseline_24h": 164814.31296414978,
+    "baseline_7d": 199921.90999996764
   },
-  "baseline_gas_resistance": 101566.29942090978,
-  "trained_date": "2026-03-09T19:59:23.875895",
+  "trained_date": "2026-03-18T13:51:47.258348",
   "window_size": 10,
-  "mae": 14.223004535999522,
-  "rmse": 17.443678140464716,
-  "r2": 0.9199294610453708,
+  "mae": 41.85155547595799,
+  "rmse": 46.187359019631224,
+  "r2": -0.3017651257312557,
   "notes": "Trained with MLP (bme680/bsec)",
-  "version": "mlp-2.12.0",
-  "schema_fingerprint": "317cc3b2111a",
-  "merkle_root_hash": "fbccb4579b3d0f1db4352e99b739c15d9f2310976b62e3a9ba9c694951f781c9"
+  "feature_names": [
+    "temperature",
+    "rel_humidity",
+    "pressure",
+    "voc_resistance",
+    "abs_humidity",
+    "baseline_24h",
+    "gas_ratio_24h",
+    "log_ratio_24h",
+    "baseline_7d",
+    "gas_ratio_7d",
+    "log_ratio_7d",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos"
+  ],
+  "version": "mlp-3.0.0",
+  "schema_fingerprint": "d259e655d6fc",
+  "merkle_root_hash": "b3e6d2ccb58fdb1a240f0dc0e6e89bf7f1cebde962c38275a23ce2149589493d"
 }

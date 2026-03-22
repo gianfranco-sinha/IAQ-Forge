@@ -1,15 +1,18 @@
 {
-  "created_at": "2026-03-08T11:05:02.456437",
-  "git_commit": "fe303a0",
-  "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
+  "created_at": "2026-03-20T08:58:02.875232",
+  "git_commit": "b206564",
+  "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
   "data_source": {
-    "source_type": "synthetic",
-    "num_samples": 1000,
-    "seed": 42
+    "source_type": "influxdb",
+    "measurement": "bme688",
+    "hours_back": 1344,
+    "min_iaq_accuracy": 2,
+    "host": "87.106.102.14",
+    "database": "home_study_room_iaq"
   },
   "config": {
     "model_type": "cnn",
-    "epochs": 50,
+    "epochs": 200,
     "window_size": 30,
     "batch_size": 32,
     "learning_rate": 0.001,
@@ -20,97 +23,128 @@
     "lr_scheduler_factor": 0.5,
     "sensor_type": "bme680",
     "iaq_standard": "bsec",
-    "num_features": 10,
-    "data_source": "SyntheticSource(1000 samples)",
-    "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-    "git_commit": "fe303a0"
+    "num_features": 15,
+    "data_source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)",
+    "feature_names": "temperature,rel_humidity,pressure,voc_resistance,abs_humidity,baseline_24h,gas_ratio_24h,log_ratio_24h,baseline_7d,gas_ratio_7d,log_ratio_7d,hour_sin,hour_cos,dow_sin,dow_cos",
+    "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+    "git_commit": "b206564"
   },
   "feature_statistics": {
     "temperature": {
-      "mean": 21.733817075652546,
-      "std": 1.4977524584954394,
-      "min": 18.971882814362903,
-      "max": 24.386844362481867
+      "mean": 15.816034057618822,
+      "std": 0.9427929334663088,
+      "min": 13.51,
+      "max": 18.46
     },
     "rel_humidity": {
-      "mean": 49.40638796637347,
-      "std": 1.5017600081979692,
-      "min": 45.5439598728614,
-      "max": 52.52497032202582
+      "mean": 55.643053012703604,
+      "std": 4.0459354475407405,
+      "min": 43.23,
+      "max": 64.52
     },
     "pressure": {
-      "mean": 1013.1813313736234,
-      "std": 0.1759277152319494,
-      "min": 1012.8163078711427,
-      "max": 1013.5062603922428
+      "mean": 996.9132349387113,
+      "std": 10.6177503310002,
+      "min": 978.76,
+      "max": 1015.3
     },
     "voc_resistance": {
-      "mean": 117781.8345001384,
-      "std": 73748.38674791313,
-      "min": 10053.986538277695,
-      "max": 328568.1282482295
-    },
-    "voc_ratio": {
-      "mean": 1.1596546804568357,
-      "std": 0.7261107982509631,
-      "min": 0.09898939506117173,
-      "max": 3.2350113189275667
+      "mean": 158764.0447657479,
+      "std": 22442.986555701784,
+      "min": 50542.94,
+      "max": 199921.91
     },
     "abs_humidity": {
-      "mean": 0.09442547732603897,
-      "std": 0.006185667123871793,
-      "min": 0.08266407707297169,
-      "max": 0.10628656955493032
+      "mean": 0.07508042477258606,
+      "std": 0.007513102403222104,
+      "min": 0.056738949395619354,
+      "max": 0.09202629117108775
+    },
+    "baseline_24h": {
+      "mean": 175183.70087973442,
+      "std": 22696.140882309268,
+      "min": 123270.55902342271,
+      "max": 199921.90999996764
+    },
+    "gas_ratio_24h": {
+      "mean": 0.9113219091397374,
+      "std": 0.10282769706873822,
+      "min": 0.25286932567792897,
+      "max": 1.2367748986454334
+    },
+    "log_ratio_24h": {
+      "mean": -0.10027948472436055,
+      "std": 0.12727716111149098,
+      "min": -1.374882422983049,
+      "max": 0.2125071032419559
+    },
+    "baseline_7d": {
+      "mean": 193144.82741771132,
+      "std": 11527.759318134764,
+      "min": 144103.58,
+      "max": 199921.90999996764
+    },
+    "gas_ratio_7d": {
+      "mean": 0.825810183081777,
+      "std": 0.13060207357415307,
+      "min": 0.2528135108263272,
+      "max": 1.0779944472513308
+    },
+    "log_ratio_7d": {
+      "mean": -0.20487022715964123,
+      "std": 0.1677844914663348,
+      "min": -1.3751031734131576,
+      "max": 0.0751023215007476
     },
     "hour_sin": {
-      "mean": -0.0037802389661575546,
-      "std": 0.7073554518042136,
+      "mean": -0.226547259171227,
+      "std": 0.662504453110075,
       "min": -1.0,
       "max": 1.0
     },
     "hour_cos": {
-      "mean": -0.005229728708940776,
-      "std": 0.7068285679949887,
+      "mean": 0.05671950030748904,
+      "std": 0.7117212145610063,
       "min": -1.0,
       "max": 1.0
     },
     "dow_sin": {
-      "mean": 0.001563662964935986,
-      "std": 0.7065939668750193,
+      "mean": -0.29748856433333903,
+      "std": 0.695885769929972,
       "min": -0.9749279121818236,
       "max": 0.9749279121818236
     },
     "dow_cos": {
-      "mean": -0.0002469796037175342,
-      "std": 0.7076174531023324,
+      "mean": 0.2648300101771478,
+      "std": 0.5975856549562001,
       "min": -0.9009688679024191,
       "max": 1.0
     }
   },
   "target_statistics": {
     "iaq": {
-      "mean": 117.23184414103144,
-      "std": 86.75855203472948,
-      "min": 0.0,
-      "max": 380.6813934947397
+      "mean": 111.07436577829104,
+      "std": 47.61275750777866,
+      "min": 46.48,
+      "max": 500.0
     }
   },
   "stages": [
     {
       "stage": "source_access",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.077,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "source": "SyntheticSource(1000 samples)"
+        "source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)"
       }
     },
     {
       "stage": "ingestion",
-      "duration_seconds": 0.012,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 9.003,
+      "rows_in": 327383,
+      "rows_out": 224267,
       "columns": [
         "temperature",
         "rel_humidity",
@@ -120,25 +154,30 @@
         "iaq_accuracy"
       ],
       "extra": {
-        "rows_before_cleaning": 1000,
-        "rows_after_cleaning": 1000,
-        "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-        "date_range_start": "2024-01-01 00:00:00+00:00",
-        "date_range_end": "2024-01-07 23:36:36+00:00"
+        "rows_before_cleaning": 327383,
+        "rows_after_cleaning": 224267,
+        "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+        "date_range_start": "2026-01-23 22:22:18.497891+00:00",
+        "date_range_end": "2026-02-26 05:31:38.378894+00:00"
       }
     },
     {
       "stage": "feature_engineering",
-      "duration_seconds": 0.001,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 0.05,
+      "rows_in": 224267,
+      "rows_out": 224267,
       "columns": [
         "temperature",
         "rel_humidity",
         "pressure",
         "voc_resistance",
-        "voc_ratio",
         "abs_humidity",
+        "baseline_24h",
+        "gas_ratio_24h",
+        "log_ratio_24h",
+        "baseline_7d",
+        "gas_ratio_7d",
+        "log_ratio_7d",
         "hour_sin",
         "hour_cos",
         "dow_sin",
@@ -146,45 +185,47 @@
       ],
       "extra": {
         "baselines": {
-          "voc_resistance": 101566.29942090978
+          "voc_resistance": 162798.09,
+          "baseline_24h": 164814.31296414978,
+          "baseline_7d": 199921.90999996764
         }
       }
     },
     {
       "stage": "windowing",
-      "duration_seconds": 0.002,
-      "rows_in": 1000,
-      "rows_out": 971,
+      "duration_seconds": 1.56,
+      "rows_in": 224267,
+      "rows_out": 221090,
       "columns": null,
       "extra": {
         "window_size": 30,
-        "feature_dim": 300,
-        "gaps_found": 0,
-        "segments": 1,
-        "median_interval_seconds": 604.0,
-        "gap_threshold_seconds": 1208.0,
-        "longest_segment_start": 0,
-        "longest_segment_end": 1000,
-        "longest_segment_samples": 1000
+        "feature_dim": 450,
+        "gaps_found": 386,
+        "segments": 387,
+        "median_interval_seconds": 3.0,
+        "gap_threshold_seconds": 6.0,
+        "largest_gap_seconds": 436446.0,
+        "valid_segments": 70,
+        "total_segment_samples": 223120
       }
     },
     {
       "stage": "splitting",
       "duration_seconds": 0.0,
-      "rows_in": 971,
-      "rows_out": 971,
+      "rows_in": 221090,
+      "rows_out": 221090,
       "columns": null,
       "extra": {
-        "train_samples": 776,
-        "val_samples": 195,
+        "train_samples": 176872,
+        "val_samples": 44218,
         "test_size": 0.2
       }
     },
     {
       "stage": "scaling",
-      "duration_seconds": 0.002,
-      "rows_in": 971,
-      "rows_out": 971,
+      "duration_seconds": 0.749,
+      "rows_in": 221090,
+      "rows_out": 221090,
       "columns": null,
       "extra": {
         "feature_scaler": "StandardScaler",
@@ -194,97 +235,112 @@
     },
     {
       "stage": "training",
-      "duration_seconds": 26.436,
+      "duration_seconds": 19531.14,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "epochs": 50,
-        "best_val_loss": 0.009387421953891004,
+        "epochs": 200,
+        "best_val_loss": 0.004065996797796707,
         "device": "mps",
-        "tensorboard_log_dir": "runs/cnn_20260308_110435"
+        "tensorboard_log_dir": "runs/cnn_20260320_033223"
       }
     },
     {
       "stage": "evaluation",
-      "duration_seconds": 0.366,
+      "duration_seconds": 8.395,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "mae": 36.7960847399679,
-        "rmse": 50.54910164854997,
-        "r2": 0.32894847943816574
+        "mae": 31.578073124113228,
+        "rmse": 40.42509124899328,
+        "r2": -0.0015704442793602613
       }
     }
   ],
-  "preprocessing_issues": [],
+  "preprocessing_issues": [
+    {
+      "severity": "warning",
+      "stage": "ingestion",
+      "message": "voc_resistance has 103116 value(s) outside valid range [1000, 200000] \u2014 rows dropped",
+      "rows_affected": 103116
+    },
+    {
+      "severity": "warning",
+      "stage": "windowing",
+      "message": "Detected 386 time gap(s) across 387 contiguous segments (largest gap: 436446s)",
+      "rows_affected": null
+    }
+  ],
   "metrics": {
-    "mae": 36.7960847399679,
-    "rmse": 50.54910164854997,
-    "r2": 0.32894847943816574
+    "mae": 31.578073124113228,
+    "rmse": 40.42509124899328,
+    "r2": -0.0015704442793602613
   },
-  "version": "cnn-2.4.0",
+  "version": "cnn-3.0.0",
   "merkle_tree": {
     "node_type": "trained_model",
     "content_inputs": {
       "model_type": "cnn",
-      "weights_hash": "1784f84ab4588feafb1424843cab44dc2c5e0ed11601708a1a04adc5a5145105",
+      "weights_hash": "031ee3055a85ba72b693b7d0e5e20bcb2ab0faca0a7bd1852c77339ca5c59a90",
       "metrics": {
-        "mae": 36.7960847399679,
-        "rmse": 50.54910164854997,
-        "r2": 0.32894847943816574
+        "mae": 31.578073124113228,
+        "rmse": 40.42509124899328,
+        "r2": -0.0015704442793602613
       },
-      "epochs": 50,
+      "epochs": 200,
       "learning_rate": 0.001,
       "batch_size": 32,
-      "version": "cnn-2.4.0"
+      "version": "cnn-3.0.0"
     },
-    "content_hash": "b60a37507bf8e79ac8f678100dac0636f1622e51d569a4d76cc729f57cf6961a",
+    "content_hash": "c2c41b8bdd036a01f1ff8b4bc3fc6fba1682533d28d157321c5e2aa1da8c300d",
     "children": [
       {
         "node_type": "split_data",
         "content_inputs": {
           "test_size": 0.2,
-          "train_samples": 776,
-          "val_samples": 195
+          "train_samples": 176872,
+          "val_samples": 44218
         },
-        "content_hash": "1c5806e1462e6514a1ff54e61f4b13fdd7d61a1ba01311f815781bec3d3e3d40",
+        "content_hash": "65bbb3cc7f1212b0f1665c3b82de2f3fcf5b2df78e4b5b1a7df13ecaa02a5304",
         "children": [
           {
             "node_type": "preprocessed_data",
             "content_inputs": {
-              "schema_fingerprint": "d2c102d1d635",
-              "feature_stats_hash": "fb33eb88a0b9fb99",
+              "schema_fingerprint": "623ba11e6c12",
+              "feature_stats_hash": "d8d85a3d7d951d10",
               "baselines": {
-                "voc_resistance": 101566.29942090978
+                "voc_resistance": 162798.09,
+                "baseline_24h": 164814.31296414978,
+                "baseline_7d": 199921.90999996764
               },
-              "scaler_hash": "fa0e9013a12a8c082d1a8b9f650843ec27e53dfdc7389d09d49213cba95be2eb",
+              "scaler_hash": "3f2c8cf7efb880e84da28c9e4b820f13556f39990af7ae715338c2d59e9f105e",
               "window_size": 30,
-              "num_features": 10,
-              "sample_count": 971
+              "num_features": 15,
+              "sample_count": 221090
             },
-            "content_hash": "dc5029ff64d8c5c097e67c1fbf9eee043bd46ea21bb0105cd5239e4dc88443c0",
+            "content_hash": "1f1ed5c188bd52591b08cf17ee654c25e9809e3bd465a15dda171525444267cd",
             "children": [
               {
                 "node_type": "cleansed_data",
                 "content_inputs": {
-                  "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-                  "clean_row_count": 1000,
-                  "rows_dropped": 0,
-                  "issues_summary": "none"
+                  "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+                  "clean_row_count": 224267,
+                  "rows_dropped": 103116,
+                  "issues_summary": "[warning] voc_resistance has 103116 value(s) outside valid range [1000, 200000] \u2014 rows dropped; [warning] Detected 386 time gap(s) across 387 contiguous segments (largest gap: 436446s)"
                 },
-                "content_hash": "facba3357c5ae037dbf0cca7067e29539c2179dd1a40b71cd717c4d8c76780f5",
+                "content_hash": "e227e9116d1b7d17542773f6ce01b1caaffa63b201752c8603aa46225d64bd46",
                 "children": [
                   {
                     "node_type": "raw_data",
                     "content_inputs": {
-                      "raw_row_count": 1000,
-                      "source_type": "synthetic",
-                      "num_samples": 1000,
-                      "seed": 42
+                      "raw_row_count": 327383,
+                      "source_type": "influxdb",
+                      "measurement": "bme688",
+                      "hours_back": 1344
                     },
-                    "content_hash": "7bae6513ff72a4b1ec940b921d7862084cf5fa070873477550260821820d59e4",
+                    "content_hash": "ada0388f80afbce18b9fc5559f10d81c8dd5c9a7fcad47b4cca44ff34a9b6fb7",
                     "children": [
                       {
                         "node_type": "sensor",
@@ -306,5 +362,5 @@
       }
     ]
   },
-  "merkle_root_hash": "b60a37507bf8e79ac8f678100dac0636f1622e51d569a4d76cc729f57cf6961a"
+  "merkle_root_hash": "c2c41b8bdd036a01f1ff8b4bc3fc6fba1682533d28d157321c5e2aa1da8c300d"
 }

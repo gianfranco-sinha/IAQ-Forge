@@ -905,7 +905,7 @@
       "git_commit": "fe303a0",
       "version": "cnn-2.4.0",
       "model_type": "cnn",
-      "is_active": true,
+      "is_active": false,
       "schema_fingerprint": "d2c102d1d635",
       "merkle_root_hash": "b60a37507bf8e79ac8f678100dac0636f1622e51d569a4d76cc729f57cf6961a"
     },
@@ -1049,7 +1049,7 @@
       "git_commit": "fe303a0",
       "version": "bnn-2.3.0",
       "model_type": "bnn",
-      "is_active": true,
+      "is_active": false,
       "schema_fingerprint": "b1f6a0edf040",
       "merkle_root_hash": "61a7be59dc6a9ae286e4b98327d3debbaf002eb4fe873a2abffc31fef98e8c4a"
     },
@@ -1065,7 +1065,7 @@
       "git_commit": "fe303a0",
       "version": "kan-2.5.0",
       "model_type": "kan",
-      "is_active": true,
+      "is_active": false,
       "schema_fingerprint": "d61cb920844a",
       "merkle_root_hash": "48d43161f9aeec781e946ce31c7ed2932279f705ca5e05f473929d7c86f6a94a"
     },
@@ -1081,9 +1081,249 @@
       "git_commit": "fe303a0",
       "version": "mlp-2.12.0",
       "model_type": "mlp",
-      "is_active": true,
+      "is_active": false,
       "schema_fingerprint": "317cc3b2111a",
       "merkle_root_hash": "fbccb4579b3d0f1db4352e99b739c15d9f2310976b62e3a9ba9c694951f781c9"
+    },
+    {
+      "timestamp": "2026-03-18T13:51:47.285246",
+      "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
+      "model_dir": "trained_models/mlp",
+      "metrics": {
+        "mae": 41.85155547595799,
+        "rmse": 46.187359019631224,
+        "r2": -0.3017651257312557
+      },
+      "git_commit": "b206564",
+      "version": "mlp-3.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "b3e6d2ccb58fdb1a240f0dc0e6e89bf7f1cebde962c38275a23ce2149589493d"
+    },
+    {
+      "timestamp": "2026-03-19T18:20:51.698486",
+      "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
+      "model_dir": "trained_models/kan",
+      "metrics": {
+        "mae": 34.592068239710876,
+        "rmse": 46.95973215777642,
+        "r2": -0.34566697667432167
+      },
+      "git_commit": "b206564",
+      "version": "kan-3.0.0",
+      "model_type": "kan",
+      "is_active": true,
+      "schema_fingerprint": "5aeae6066145",
+      "merkle_root_hash": "8970d89687bbd21e2ce294020b3d3d61a5fc8e354ed9f53b1ced8c17fa565372"
+    },
+    {
+      "timestamp": "2026-03-20T08:58:02.956398",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "trained_models/cnn",
+      "metrics": {
+        "mae": 31.578073124113228,
+        "rmse": 40.42509124899328,
+        "r2": -0.0015704442793602613
+      },
+      "git_commit": "b206564",
+      "version": "cnn-3.0.0",
+      "model_type": "cnn",
+      "is_active": false,
+      "schema_fingerprint": "623ba11e6c12",
+      "merkle_root_hash": "c2c41b8bdd036a01f1ff8b4bc3fc6fba1682533d28d157321c5e2aa1da8c300d"
+    },
+    {
+      "timestamp": "2026-03-20T14:33:50.059992",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/with_pressure/mlp",
+      "metrics": {
+        "mae": 49.76345912271149,
+        "rmse": 56.18472947115013,
+        "r2": -0.909755622926375
+      },
+      "git_commit": "b206564",
+      "version": "mlp-3.1.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "79799795100713059dbe0163ce896f2927958df58432afa2c762555a058948b3"
+    },
+    {
+      "timestamp": "2026-03-20T23:28:08.919369",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/with_pressure/cnn",
+      "metrics": {
+        "mae": 30.781408910215173,
+        "rmse": 36.88673088044201,
+        "r2": 0.1660887804787191
+      },
+      "git_commit": "b206564",
+      "version": "cnn-3.1.0",
+      "model_type": "cnn",
+      "is_active": false,
+      "schema_fingerprint": "623ba11e6c12",
+      "merkle_root_hash": "507c23b6169f08a97a13f12ae676c1530c974f5b40a74c95315e6a7fd0bb9d4f"
+    },
+    {
+      "timestamp": "2026-03-21T11:32:52.302847",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/test_fix/mlp",
+      "metrics": {
+        "mae": 47.30483646885126,
+        "rmse": 52.0774404632798,
+        "r2": -0.640742665057531
+      },
+      "git_commit": "b206564",
+      "version": "mlp-4.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "eb5ccc012310",
+      "merkle_root_hash": "3e91aed75a4f89e4ea702352c1611b74bbd560f40a826d550f9dbf6140d96b4f"
+    },
+    {
+      "timestamp": "2026-03-21T17:03:01.221615",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/with_pressure/mlp",
+      "metrics": {
+        "mae": 49.76345912271149,
+        "rmse": 56.18472947115013,
+        "r2": -0.909755622926375
+      },
+      "git_commit": "b206564",
+      "version": "mlp-5.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "d289a63c7286032d0ed1f714cf5cfcbe9b2e0d4bd97fcd67842ea1523bc7e9bf"
+    },
+    {
+      "timestamp": "2026-03-21T18:21:12.660489",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/with_pressure/cnn",
+      "metrics": {
+        "mae": 30.781408910215173,
+        "rmse": 36.88673088044201,
+        "r2": 0.1660887804787191
+      },
+      "git_commit": "b206564",
+      "version": "cnn-3.1.1",
+      "model_type": "cnn",
+      "is_active": false,
+      "schema_fingerprint": "623ba11e6c12",
+      "merkle_root_hash": "d71f8047b703e8ac9417932f162459abe30dd56dfd900bedb9c88dbcb159d8c3"
+    },
+    {
+      "timestamp": "2026-03-21T22:48:25.576046",
+      "data_fingerprint": "e96c16fbff24d4791107d40f5a80e149a91a6962c888d18021a0c33b6359363f",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation_drift/raw_voc/mlp",
+      "metrics": {
+        "mae": 30.951003258750617,
+        "rmse": 41.754969040198894,
+        "r2": 0.1172375476358114
+      },
+      "git_commit": "b206564",
+      "version": "mlp-5.1.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "983f9ffae8653acf801838d744c4a9d59ccd25a7f9db997cddd711d2c5203de2"
+    },
+    {
+      "timestamp": "2026-03-21T22:51:54.462294",
+      "data_fingerprint": "f297be97e0532d58681015730ecf1c05c988845d17e14f07db44cff33ed16058",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation_drift/compensated_voc/mlp",
+      "metrics": {
+        "mae": 28.357163613389876,
+        "rmse": 36.28999274160667,
+        "r2": 0.31627168524797233
+      },
+      "git_commit": "b206564",
+      "version": "mlp-5.2.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "df67e6e7f3c97084ca79074b7b88270eef72a3b430ee0297da68f70d6e689c94"
+    },
+    {
+      "timestamp": "2026-03-22T00:14:36.756346",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/without_pressure/mlp",
+      "metrics": {
+        "mae": 46.54153107097752,
+        "rmse": 53.347726477842045,
+        "r2": -0.7217616920757561
+      },
+      "git_commit": "b206564",
+      "version": "mlp-6.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "eb5ccc012310",
+      "merkle_root_hash": "d33c71f1c27bb1ee664512e7e39f44a99efdd16a01efa3b7bb344b3176b579f7"
+    },
+    {
+      "timestamp": "2026-03-22T01:32:39.931929",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/without_pressure/cnn",
+      "metrics": {
+        "mae": 29.24386246178905,
+        "rmse": 35.58670952846127,
+        "r2": 0.2238330439412941
+      },
+      "git_commit": "b206564",
+      "version": "cnn-4.0.0",
+      "model_type": "cnn",
+      "is_active": true,
+      "schema_fingerprint": "266e350456f7",
+      "merkle_root_hash": "840e26cec5483e219b794108d81ef946349594c4f8dfdf8e9a0ae2fe0adda76d"
+    },
+    {
+      "timestamp": "2026-03-22T03:21:47.688587",
+      "data_fingerprint": "e8d5190908f081875dcc7ff84ea928389c6478189f56fb6ef35b687b37326688",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation/without_pressure/bnn",
+      "metrics": {
+        "mae": 30.09559665110208,
+        "rmse": 32.891197296067595,
+        "r2": 0.34551367773567776
+      },
+      "git_commit": "b206564",
+      "version": "bnn-3.0.0",
+      "model_type": "bnn",
+      "is_active": true,
+      "schema_fingerprint": "f5a8b55e9bf1",
+      "merkle_root_hash": "8aca4f22c1861161e2e90b6ab5a6b8532d134d74f37d05d021da6c8ecfbd76a6"
+    },
+    {
+      "timestamp": "2026-03-22T11:05:18.692645",
+      "data_fingerprint": "e96c16fbff24d4791107d40f5a80e149a91a6962c888d18021a0c33b6359363f",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation_drift/raw_voc/mlp",
+      "metrics": {
+        "mae": 28.422282668460724,
+        "rmse": 37.31840053881503,
+        "r2": 0.29486290221807687
+      },
+      "git_commit": "b206564",
+      "version": "mlp-7.0.0",
+      "model_type": "mlp",
+      "is_active": false,
+      "schema_fingerprint": "d259e655d6fc",
+      "merkle_root_hash": "61dcddc5a3a334feb28a5a5075191bd2f9cb71b2544d01374e8746773b983391"
+    },
+    {
+      "timestamp": "2026-03-22T12:07:10.192479",
+      "data_fingerprint": "e279846b615f07d61966eea7ee427742c61d915f5ed5b146762cc0a02a93442f",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation_log_voc/raw_voc/mlp",
+      "metrics": {
+        "mae": 28.496318156412226,
+        "rmse": 38.19396218023544,
+        "r2": 0.3042410774561918
+      },
+      "git_commit": "b206564",
+      "version": "mlp-8.0.0",
+      "model_type": "mlp",
+      "is_active": true,
+      "schema_fingerprint": "eb5ccc012310",
+      "merkle_root_hash": "81fd05b5e1598513414c6106af802fbe2183611f760d0fb43fc1c86898f033c9"
     }
   ]
 }

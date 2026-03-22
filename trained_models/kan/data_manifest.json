@@ -1,15 +1,18 @@
 {
-  "created_at": "2026-03-09T19:59:00.673160",
-  "git_commit": "fe303a0",
-  "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
+  "created_at": "2026-03-19T18:20:51.661506",
+  "git_commit": "b206564",
+  "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
   "data_source": {
-    "source_type": "synthetic",
-    "num_samples": 1000,
-    "seed": 42
+    "source_type": "influxdb",
+    "measurement": "bme688",
+    "hours_back": 1344,
+    "min_iaq_accuracy": 2,
+    "host": "87.106.102.14",
+    "database": "home_study_room_iaq"
   },
   "config": {
     "model_type": "kan",
-    "epochs": 100,
+    "epochs": 200,
     "window_size": 10,
     "batch_size": 32,
     "learning_rate": 0.001,
@@ -20,97 +23,129 @@
     "lr_scheduler_factor": 0.5,
     "sensor_type": "bme680",
     "iaq_standard": "bsec",
-    "num_features": 10,
-    "data_source": "SyntheticSource(1000 samples)",
-    "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-    "git_commit": "fe303a0"
+    "num_features": 15,
+    "data_source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)",
+    "feature_names": "temperature,rel_humidity,pressure,voc_resistance,abs_humidity,baseline_24h,gas_ratio_24h,log_ratio_24h,baseline_7d,gas_ratio_7d,log_ratio_7d,hour_sin,hour_cos,dow_sin,dow_cos",
+    "kan_reg_weight": 1.0,
+    "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
+    "git_commit": "b206564"
   },
   "feature_statistics": {
     "temperature": {
-      "mean": 21.733817075652546,
-      "std": 1.4977524584954394,
-      "min": 18.971882814362903,
-      "max": 24.386844362481867
+      "mean": 15.823475508817175,
+      "std": 0.9332348213376527,
+      "min": 13.51,
+      "max": 18.46
     },
     "rel_humidity": {
-      "mean": 49.40638796637347,
-      "std": 1.5017600081979692,
-      "min": 45.5439598728614,
-      "max": 52.52497032202582
+      "mean": 55.68429074893706,
+      "std": 4.008139300418551,
+      "min": 43.23,
+      "max": 64.52
     },
     "pressure": {
-      "mean": 1013.1813313736234,
-      "std": 0.1759277152319494,
-      "min": 1012.8163078711427,
-      "max": 1013.5062603922428
+      "mean": 996.564745242908,
+      "std": 10.737612836981553,
+      "min": 978.76,
+      "max": 1015.3
     },
     "voc_resistance": {
-      "mean": 117781.8345001384,
-      "std": 73748.38674791313,
-      "min": 10053.986538277695,
-      "max": 328568.1282482295
-    },
-    "voc_ratio": {
-      "mean": 1.1596546804568357,
-      "std": 0.7261107982509631,
-      "min": 0.09898939506117173,
-      "max": 3.2350113189275667
+      "mean": 158506.32804053108,
+      "std": 22290.470838923455,
+      "min": 50542.94,
+      "max": 199921.91
     },
     "abs_humidity": {
-      "mean": 0.09442547732603897,
-      "std": 0.006185667123871793,
-      "min": 0.08266407707297169,
-      "max": 0.10628656955493032
+      "mean": 0.07516734399886371,
+      "std": 0.007447794974276105,
+      "min": 0.056738949395619354,
+      "max": 0.09202629117108775
+    },
+    "baseline_24h": {
+      "mean": 174536.7219718182,
+      "std": 22862.066551462933,
+      "min": 123270.55902342271,
+      "max": 199921.90999996764
+    },
+    "gas_ratio_24h": {
+      "mean": 0.9134589445688088,
+      "std": 0.1028259909366472,
+      "min": 0.25286932567792897,
+      "max": 1.2367748986454334
+    },
+    "log_ratio_24h": {
+      "mean": -0.0979011333416562,
+      "std": 0.12696021400975574,
+      "min": -1.374882422983049,
+      "max": 0.2125071032419559
+    },
+    "baseline_7d": {
+      "mean": 192376.01155986296,
+      "std": 12543.509085652537,
+      "min": 131248.39,
+      "max": 199921.90999996764
+    },
+    "gas_ratio_7d": {
+      "mean": 0.8281340837039407,
+      "std": 0.13041529918316794,
+      "min": 0.2528135108263272,
+      "max": 1.0779944472513308
+    },
+    "log_ratio_7d": {
+      "mean": -0.20197041059633372,
+      "std": 0.16730209233339405,
+      "min": -1.3751031734131576,
+      "max": 0.0751023215007476
     },
     "hour_sin": {
-      "mean": -0.0037802389661575546,
-      "std": 0.7073554518042136,
+      "mean": -0.24227394570924504,
+      "std": 0.6629737525124917,
       "min": -1.0,
       "max": 1.0
     },
     "hour_cos": {
-      "mean": -0.005229728708940776,
-      "std": 0.7068285679949887,
+      "mean": 0.04982583031875638,
+      "std": 0.7066020983149043,
       "min": -1.0,
       "max": 1.0
     },
     "dow_sin": {
-      "mean": 0.001563662964935986,
-      "std": 0.7065939668750193,
+      "mean": -0.2806501023563665,
+      "std": 0.6965196016046861,
       "min": -0.9749279121818236,
       "max": 0.9749279121818236
     },
     "dow_cos": {
-      "mean": -0.0002469796037175342,
-      "std": 0.7076174531023324,
+      "mean": 0.2379896991772414,
+      "std": 0.6160007043123705,
       "min": -0.9009688679024191,
       "max": 1.0
     }
   },
   "target_statistics": {
     "iaq": {
-      "mean": 117.23184414103144,
-      "std": 86.75855203472948,
-      "min": 0.0,
-      "max": 380.6813934947397
+      "mean": 111.55573168606676,
+      "std": 47.49643186333388,
+      "min": 46.48,
+      "max": 500.0
     }
   },
   "stages": [
     {
       "stage": "source_access",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.068,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "source": "SyntheticSource(1000 samples)"
+        "source": "InfluxDB(87.106.102.14:8086/home_study_room_iaq)"
       }
     },
     {
       "stage": "ingestion",
-      "duration_seconds": 0.118,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 9.623,
+      "rows_in": 332668,
+      "rows_out": 229552,
       "columns": [
         "temperature",
         "rel_humidity",
@@ -120,25 +155,30 @@
         "iaq_accuracy"
       ],
       "extra": {
-        "rows_before_cleaning": 1000,
-        "rows_after_cleaning": 1000,
-        "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-        "date_range_start": "2024-01-01 00:00:00+00:00",
-        "date_range_end": "2024-01-07 23:36:36+00:00"
+        "rows_before_cleaning": 332668,
+        "rows_after_cleaning": 229552,
+        "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
+        "date_range_start": "2026-01-22 15:17:30.542388+00:00",
+        "date_range_end": "2026-02-26 05:31:38.378894+00:00"
       }
     },
     {
       "stage": "feature_engineering",
-      "duration_seconds": 0.001,
-      "rows_in": 1000,
-      "rows_out": 1000,
+      "duration_seconds": 0.08,
+      "rows_in": 229552,
+      "rows_out": 229552,
       "columns": [
         "temperature",
         "rel_humidity",
         "pressure",
         "voc_resistance",
-        "voc_ratio",
         "abs_humidity",
+        "baseline_24h",
+        "gas_ratio_24h",
+        "log_ratio_24h",
+        "baseline_7d",
+        "gas_ratio_7d",
+        "log_ratio_7d",
         "hour_sin",
         "hour_cos",
         "dow_sin",
@@ -146,44 +186,47 @@
       ],
       "extra": {
         "baselines": {
-          "voc_resistance": 101566.29942090978
+          "voc_resistance": 161718.25,
+          "baseline_24h": 164814.31296414978,
+          "baseline_7d": 199921.90999996764
         }
       }
     },
     {
       "stage": "windowing",
-      "duration_seconds": 0.001,
-      "rows_in": 1000,
-      "rows_out": 991,
+      "duration_seconds": 0.335,
+      "rows_in": 229552,
+      "rows_out": 228008,
       "columns": null,
       "extra": {
         "window_size": 10,
-        "feature_dim": 100,
-        "gaps_found": 0,
-        "segments": 1,
-        "median_interval_seconds": 604.0,
-        "gap_threshold_seconds": 1208.0,
-        "valid_segments": 1,
-        "total_segment_samples": 1000
+        "feature_dim": 150,
+        "gaps_found": 387,
+        "segments": 388,
+        "median_interval_seconds": 3.0,
+        "gap_threshold_seconds": 6.0,
+        "largest_gap_seconds": 436446.0,
+        "valid_segments": 101,
+        "total_segment_samples": 228917
       }
     },
     {
       "stage": "splitting",
       "duration_seconds": 0.0,
-      "rows_in": 991,
-      "rows_out": 991,
+      "rows_in": 228008,
+      "rows_out": 228008,
       "columns": null,
       "extra": {
-        "train_samples": 792,
-        "val_samples": 199,
+        "train_samples": 182406,
+        "val_samples": 45602,
         "test_size": 0.2
       }
     },
     {
       "stage": "scaling",
-      "duration_seconds": 0.001,
-      "rows_in": 991,
-      "rows_out": 991,
+      "duration_seconds": 0.277,
+      "rows_in": 228008,
+      "rows_out": 228008,
       "columns": null,
       "extra": {
         "feature_scaler": "StandardScaler",
@@ -193,97 +236,112 @@
     },
     {
       "stage": "training",
-      "duration_seconds": 95.168,
+      "duration_seconds": 46168.904,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "epochs": 100,
-        "best_val_loss": 10.26693480355399,
+        "epochs": 200,
+        "best_val_loss": 0.5659273663459954,
         "device": "mps",
-        "tensorboard_log_dir": "runs/kan_20260309_195725"
+        "tensorboard_log_dir": "runs/kan_20260318_135202"
       }
     },
     {
       "stage": "evaluation",
-      "duration_seconds": 0.334,
+      "duration_seconds": 6.08,
       "rows_in": null,
       "rows_out": null,
       "columns": null,
       "extra": {
-        "mae": 37.431320670632296,
-        "rmse": 47.37507150081218,
-        "r2": 0.4093960066357891
+        "mae": 34.592068239710876,
+        "rmse": 46.95973215777642,
+        "r2": -0.34566697667432167
       }
     }
   ],
-  "preprocessing_issues": [],
+  "preprocessing_issues": [
+    {
+      "severity": "warning",
+      "stage": "ingestion",
+      "message": "voc_resistance has 103116 value(s) outside valid range [1000, 200000] \u2014 rows dropped",
+      "rows_affected": 103116
+    },
+    {
+      "severity": "warning",
+      "stage": "windowing",
+      "message": "Detected 387 time gap(s) across 388 contiguous segments (largest gap: 436446s)",
+      "rows_affected": null
+    }
+  ],
   "metrics": {
-    "mae": 37.431320670632296,
-    "rmse": 47.37507150081218,
-    "r2": 0.4093960066357891
+    "mae": 34.592068239710876,
+    "rmse": 46.95973215777642,
+    "r2": -0.34566697667432167
   },
-  "version": "kan-2.5.0",
+  "version": "kan-3.0.0",
   "merkle_tree": {
     "node_type": "trained_model",
     "content_inputs": {
       "model_type": "kan",
-      "weights_hash": "644b30b2bb713368efe5878923fbe7c211028ff8c2f72d157098f4f665a2b9f3",
+      "weights_hash": "5cadb0bec6747ed4c2d2fb630530308f92e9c6d901e8f8e22ec941df585e5b8c",
       "metrics": {
-        "mae": 37.431320670632296,
-        "rmse": 47.37507150081218,
-        "r2": 0.4093960066357891
+        "mae": 34.592068239710876,
+        "rmse": 46.95973215777642,
+        "r2": -0.34566697667432167
       },
-      "epochs": 100,
+      "epochs": 200,
       "learning_rate": 0.001,
       "batch_size": 32,
-      "version": "kan-2.5.0"
+      "version": "kan-3.0.0"
     },
-    "content_hash": "48d43161f9aeec781e946ce31c7ed2932279f705ca5e05f473929d7c86f6a94a",
+    "content_hash": "8970d89687bbd21e2ce294020b3d3d61a5fc8e354ed9f53b1ced8c17fa565372",
     "children": [
       {
         "node_type": "split_data",
         "content_inputs": {
           "test_size": 0.2,
-          "train_samples": 792,
-          "val_samples": 199
+          "train_samples": 182406,
+          "val_samples": 45602
         },
-        "content_hash": "ec46eb0d64edc2e2ea93b62c049aff293e8a279058b43e9bd266bee3ad768cb4",
+        "content_hash": "97a192ae9996b2b128ef758beb7248bf0824ab6a4045bac4c3b1934396d15740",
         "children": [
           {
             "node_type": "preprocessed_data",
             "content_inputs": {
-              "schema_fingerprint": "d61cb920844a",
-              "feature_stats_hash": "fb33eb88a0b9fb99",
+              "schema_fingerprint": "5aeae6066145",
+              "feature_stats_hash": "7abe7183d5b4930c",
               "baselines": {
-                "voc_resistance": 101566.29942090978
+                "voc_resistance": 161718.25,
+                "baseline_24h": 164814.31296414978,
+                "baseline_7d": 199921.90999996764
               },
-              "scaler_hash": "727f33af7f7799fe1981ba407cb55e6db5377d41906fdf397e66a9182ce235bf",
+              "scaler_hash": "575e3ad37d8ebdfd2c7059da86313f6c828cf0ea21156ceb827d649298a7dfda",
               "window_size": 10,
-              "num_features": 10,
-              "sample_count": 991
+              "num_features": 15,
+              "sample_count": 228008
             },
-            "content_hash": "1339c1148ef27e7631549eea58182670b81b8184247b0a78744d7d0de75ee4e5",
+            "content_hash": "e139191ac8f4642378ef842bfa45f48e67c1b57c6666fc622df6941a37f150e7",
             "children": [
               {
                 "node_type": "cleansed_data",
                 "content_inputs": {
-                  "data_fingerprint": "8e6d5895ba585dc7fedb9b5896ca2e8cf2d811051c4e98f61caacbf55eb62d61",
-                  "clean_row_count": 1000,
-                  "rows_dropped": 0,
-                  "issues_summary": "none"
+                  "data_fingerprint": "a26edb3e54e8340867c224e1500a57eabc5eb7b950331bdab52a5efaff5b566e",
+                  "clean_row_count": 229552,
+                  "rows_dropped": 103116,
+                  "issues_summary": "[warning] voc_resistance has 103116 value(s) outside valid range [1000, 200000] \u2014 rows dropped; [warning] Detected 387 time gap(s) across 388 contiguous segments (largest gap: 436446s)"
                 },
-                "content_hash": "facba3357c5ae037dbf0cca7067e29539c2179dd1a40b71cd717c4d8c76780f5",
+                "content_hash": "a4978d0b85402910171edd61f3048f872bece388a6bfe8b6bd371594d8bb92c5",
                 "children": [
                   {
                     "node_type": "raw_data",
                     "content_inputs": {
-                      "raw_row_count": 1000,
-                      "source_type": "synthetic",
-                      "num_samples": 1000,
-                      "seed": 42
+                      "raw_row_count": 332668,
+                      "source_type": "influxdb",
+                      "measurement": "bme688",
+                      "hours_back": 1344
                     },
-                    "content_hash": "7bae6513ff72a4b1ec940b921d7862084cf5fa070873477550260821820d59e4",
+                    "content_hash": "3479ea0692bf22a771c523a8ae1c7329686c181978ef2dc9805192e78acbc121",
                     "children": [
                       {
                         "node_type": "sensor",
@@ -305,5 +363,5 @@
       }
     ]
   },
-  "merkle_root_hash": "48d43161f9aeec781e946ce31c7ed2932279f705ca5e05f473929d7c86f6a94a"
+  "merkle_root_hash": "8970d89687bbd21e2ce294020b3d3d61a5fc8e354ed9f53b1ced8c17fa565372"
 }

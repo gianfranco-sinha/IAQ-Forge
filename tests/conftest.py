@@ -70,15 +70,15 @@ def model_artifact_dir(tmp_path, monkeypatch):
     # Use a controlled config so build_model uses our window_size/num_features
     test_cfg = settings._get_default_model_config()
     test_cfg["mlp"]["window_size"] = 5
-    test_cfg["mlp"]["num_features"] = 10
-    test_cfg["global"]["num_features"] = 10
+    test_cfg["mlp"]["num_features"] = 15
+    test_cfg["global"]["num_features"] = 15
     monkeypatch.setattr(settings, "_model_config_cache", test_cfg)
 
-    model = build_model("mlp", window_size=5, num_features=10)
+    model = build_model("mlp", window_size=5, num_features=15)
     model_dir = tmp_path / "mlp"
 
     rng = np.random.default_rng(99)
-    n_features = 5 * 10  # window_size * num_features
+    n_features = 5 * 15  # window_size * num_features
     X = rng.standard_normal((20, n_features))
     y = rng.uniform(0, 500, 20)
 

@@ -1,6 +1,7 @@
 # ============================================================================
-# Requirements for BSEC IAQ Anomaly Detection with KAN
-# Python Version Required: 3.9.x (CRITICAL for KAN compatibility)
+# iaq4j — ML platform for indoor air quality prediction
+# Python 3.9+ compatible. Python 3.12+ recommended (Docker default).
+# KAN sidecar runs Python 3.9 (vendored efficient-kan).
 # ============================================================================
 
 # ============================================================================
@@ -9,13 +10,12 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.27.0
 pydantic>=2.5.3
-pydantic-settings>=2.1.0
-python-multipart==0.0.6
+pydantic-settings>=2.6.0
+python-multipart>=0.0.6
 
 # ============================================================================
 # Deep Learning - PyTorch Stack
 # ============================================================================
-# PyTorch 2.9.x for Python 3.14 (Apple Silicon MPS supported)
 torch>=2.9.0
 torchvision>=0.24.0
 torchaudio>=2.9.0
@@ -23,36 +23,36 @@ torchaudio>=2.9.0
 # ============================================================================
 # Machine Learning & Data Science
 # ============================================================================
-scikit-learn==1.4.0
-numpy==1.26.3
-pandas==2.1.4
+scikit-learn>=1.5.0
+numpy>=2.0.0
+pandas>=2.2.0
 
 # ============================================================================
 # Time Series Database
 # ============================================================================
-influxdb==5.3.1              # For InfluxDB 1.x (DataFrameClient)
-influxdb-client==1.38.0        # For InfluxDB 2.x (InfluxDBClient)
-# Note: Choose based on your InfluxDB server version
+influxdb>=5.3.1                # For InfluxDB 1.x (DataFrameClient)
+influxdb-client>=1.38.0        # For InfluxDB 2.x (InfluxDBClient)
 
 # ============================================================================
 # Visualization
 # ============================================================================
-matplotlib==3.8.2
-seaborn==0.13.1
+matplotlib>=3.8.0
+seaborn>=0.13.0
 
 # ============================================================================
 # Utilities
 # ============================================================================
-pyyaml==6.0.3
-requests==2.32.5
-tqdm==4.67.1
+pyyaml>=6.0.0
+requests>=2.31.0
+httpx>=0.27.0
+tqdm>=4.66.0
+joblib>=1.3.0
 
 # ============================================================================
 # KAN (Kolmogorov-Arnold Networks)
 # ============================================================================
-# KAN is vendored in app/kan.py - do NOT pip install efficient-kan
-# See app/kan.py for the vendored implementation
-# ============================================================================
+# KAN is vendored in app/kan.py — runs in-process on Python 3.9, or in the
+# kan_sidecar Docker container on Python 3.12+. Do NOT pip install efficient-kan.
 
 # ============================================================================
 # Field Mapping (Optional — fuzzy matching for CSV column headers)
@@ -60,136 +60,25 @@ tqdm==4.67.1
 # rapidfuzz>=3.0.0            # Optional: fuzzy field mapping (python -m iaq4j map-fields)
 
 # ============================================================================
-# Development Tools (Optional - uncomment to install)
+# Development Tools
 # ============================================================================
-pytest==7.4.4              # Testing framework
-pytest-cov==4.1.0          # Code coverage
-hypothesis>=6.100.0        # Property-based testing
-# black==24.1.1              # Code formatter
-# flake8==7.0.0              # Linter
-# isort==5.13.2              # Import sorter
-# mypy==1.8.0                # Type checker
-# ipython==8.12.3            # Enhanced REPL
-# jupyter==1.0.0             # Jupyter notebooks
-# notebook==7.0.8            # Jupyter notebook server
+pytest>=8.0.0
+pytest-cov>=5.0.0
+hypothesis>=6.100.0
+# ruff                         # Linter + formatter (replaces black + flake8 + isort)
+# mypy>=1.8.0                  # Type checker
 
 # ============================================================================
-# INSTALLATION INSTRUCTIONS
+# SETUP
 # ============================================================================
 #
-# STEP 1: Verify Python Version
-# -----------------------------
-# python --version
-# # Must show: Python 3.9.x
-# # If not, install Python 3.9 first (see below)
-#
-# STEP 2: Create Virtual Environment (RECOMMENDED)
-# -------------------------------------------------
-# python -m venv venv
-# source venv/bin/activate          # Mac/Linux
-# # OR
-# venv\Scripts\activate             # Windows
-#
-# STEP 3: Upgrade pip
-# -------------------
+# python3.12 -m venv venv
+# source venv/bin/activate
 # pip install --upgrade pip setuptools wheel
-#
-# STEP 4: Install Requirements
-# ----------------------------
 # pip install -r requirements.txt
 #
-# STEP 5: Install KAN (CRITICAL - Separate Step)
-# -----------------------------------------------
-# pip install git+https://github.com/Blealtan/efficient-kan.git
-#
-# STEP 6: Verify Installation
-# ---------------------------
-# python -c "import torch; print(f'✓ PyTorch {torch.__version__}')"
-# python -c "import efficient_kan; print('✓ KAN installed')"
-# python -c "from app.models import IAQPredictor; print('✓ IAQPredictor available')"
-#
-# ============================================================================
-# PYTHON 3.9 INSTALLATION GUIDE
-# ============================================================================
-#
-# Option A: Using pyenv (Recommended for Mac/Linux)
-# --------------------------------------------------
-# # Install pyenv
-# brew install pyenv                    # Mac
-# # OR
-# curl https://pyenv.run | bash        # Linux
-#
-# # Install Python 3.9.18
-# pyenv install 3.9.18
-# pyenv local 3.9.18                   # Set for current directory
-# python --version                     # Verify
-#
-# Option B: Using conda
-# ---------------------
-# conda create -n kan_env python=3.9
-# conda activate kan_env
-# python --version                     # Verify
-#
-# Option C: Direct Download
-# -------------------------
-# Download from: https://www.python.org/downloads/release/python-3918/
-# Install and add to PATH
-#
-# ============================================================================
-# TROUBLESHOOTING
-# ============================================================================
-#
-# Issue: "No matching distribution found for torch==2.1.2"
-# Solution:
-#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-#   # For CUDA 11.8:
-#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-#
-# Issue: "Package 'pykan' requires a different Python"
-# Solution: You're not on Python 3.9. Check: python --version
-#
-# Issue: KAN installation fails with "No module named 'torch'"
-# Solution: Install PyTorch first (Step 4), THEN install KAN (Step 5)
-#
-# Issue: "ImportError: cannot import name 'IAQPredictor'"
-# Solution: Replace app/models.py with the fixed version provided
-#
-# Issue: Import errors for evaluate or feature_engineering
-# Solution: Replace training/*.py files with fixed versions
-#
-# ============================================================================
-# GPU SUPPORT (Optional)
-# ============================================================================
-#
-# For NVIDIA GPU with CUDA 11.8:
-# -------------------------------
-# pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
-#
-# For NVIDIA GPU with CUDA 12.1:
-# -------------------------------
-# pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
-#
-# Verify GPU:
-# -----------
-# python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
-#
-# ============================================================================
-# QUICK START AFTER INSTALLATION
-# ============================================================================
-#
-# 1. Start the server:
-#    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-#
-# 2. Check health:
-#    curl http://localhost:8000/health
-#
-# 3. Train models (if you have InfluxDB data):
-#    python train_models.py
-#
-# 4. Create dummy models for testing:
-#    python create_dummy_models.py
-#
-# 5. Test predictions:
-#    python test_client.py
+# NOTE: Existing trained model artifacts (.pkl scalers) are incompatible with
+# numpy 2.x. Retrain all models after upgrading:
+#   python -m iaq4j train --model all --epochs 200
 #
 # ============================================================================

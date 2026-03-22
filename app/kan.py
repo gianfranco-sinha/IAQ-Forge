@@ -1,5 +1,6 @@
 # Vendored from efficient-kan (https://github.com/Blealtan/efficient-kan)
 # Removes external dependency that breaks on Python > 3.9
+# Synced with kan_sidecar/app/kan.py — keep identical
 import torch
 import torch.nn.functional as F
 import math

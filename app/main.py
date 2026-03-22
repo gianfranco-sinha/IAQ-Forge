@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-from app.models import IAQPredictor
+from app.models import IAQPredictor, _KAN_AVAILABLE
 from app.inference import InferenceEngine
 from app.schemas import (
     SensorReading,
@@ -27,9 +27,11 @@ from app.schemas import (
     SensorConfirmResponse,
     SensorDriftReport,
     StructuredResponse,
+    configure_field_mapping,
 )
 from app.config import settings
 from app.database import influx_manager
+from app.exceptions import IAQError
 import app.builtin_profiles  # noqa: F401  — registers sensor/standard profiles
 
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +60,12 @@ async def lifespan(app: FastAPI):
     """Load models on startup."""
     global predictors, inference_engines, active_model
 
+    # Configure field mapping from model_config.yaml for SensorReading validation
+    cfg = settings.load_model_config()
+    field_mapping = cfg.get("sensor", {}).get("field_mapping", {})
+    if field_mapping:
+        configure_field_mapping(field_mapping)
+
     if settings.ENVIRONMENT == "production":
         logger.warning(
             "\n"
@@ -83,6 +91,33 @@ async def lifespan(app: FastAPI):
         try:
             model_cfg = settings.get_model_config(model_type)
             window_size = model_cfg.get("window_size", 10)
+
+            # KAN: use remote sidecar when local KAN is unavailable
+            if model_type == "kan" and not _KAN_AVAILABLE and settings.KAN_REMOTE_URL:
+                from app.remote_predictor import RemoteKANPredictor
+
+                predictor = RemoteKANPredictor(
+                    base_url=settings.KAN_REMOTE_URL,
+                    timeout=settings.KAN_REMOTE_TIMEOUT,
+                    window_size=window_size,
+                )
+                if not predictor.load_model(model_path):
+                    logger.warning(
+                        "KAN sidecar at %s not available — skipping KAN",
+                        settings.KAN_REMOTE_URL,
+                    )
+                    continue
+                predictors[model_type] = predictor
+                inference_engines[model_type] = InferenceEngine(predictor)
+                logger.info("KAN model loaded via remote sidecar at %s", settings.KAN_REMOTE_URL)
+                continue
+
+            if model_type == "kan" and not _KAN_AVAILABLE:
+                logger.warning(
+                    "KAN not available (Python >3.9?) and KAN_REMOTE_URL not set — skipping KAN"
+                )
+                continue
+
             predictor = IAQPredictor(
                 model_type=model_type, window_size=window_size
             )
@@ -170,6 +205,19 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content=StructuredResponse(
             status=status,
             detail=exc.detail,
+        ).model_dump(exclude_none=True),
+    )
+
+
+@app.exception_handler(IAQError)
+async def iaq_error_handler(request: Request, exc: IAQError):
+    return JSONResponse(
+        status_code=422,
+        content=StructuredResponse(
+            status="error",
+            error_code=exc.code.value,
+            detail=str(exc),
+            next_steps=[exc.suggestion] if exc.suggestion else [],
         ).model_dump(exclude_none=True),
     )
 
@@ -510,6 +558,7 @@ async def confirm_sensor_mapping(mapping_id: str, req: SensorConfirmRequest = No
         yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
 
     settings.invalidate_config_cache()
+    configure_field_mapping(field_mapping)
     logger.info("Field mapping saved: %s", field_mapping)
 
     return SensorConfirmResponse(
@@ -551,6 +600,7 @@ async def delete_sensor_mapping():
         yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
 
     settings.invalidate_config_cache()
+    configure_field_mapping({})
     logger.info("Field mapping removed from config")
     return {"status": "removed"}
 

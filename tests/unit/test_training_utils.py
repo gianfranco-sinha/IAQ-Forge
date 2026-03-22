@@ -69,7 +69,7 @@ class TestFindContiguousSegments:
     def test_one_gap(self):
         idx1 = pd.date_range("2026-01-01 00:00", periods=50, freq="3s")
         idx2 = pd.date_range("2026-01-01 01:00", periods=50, freq="3s")
-        idx = idx1.append(idx2)
+        idx = idx1.union(idx2)
         segments, info = find_contiguous_segments(idx)
         assert info["gaps_found"] == 1
         assert info["segments"] == 2
@@ -79,7 +79,7 @@ class TestFindContiguousSegments:
         idx1 = pd.date_range("2026-01-01 00:00", periods=20, freq="3s")
         idx2 = pd.date_range("2026-01-01 01:00", periods=20, freq="3s")
         idx3 = pd.date_range("2026-01-01 02:00", periods=20, freq="3s")
-        idx = idx1.append(idx2).append(idx3)
+        idx = idx1.union(idx2).union(idx3)
         segments, info = find_contiguous_segments(idx)
         assert info["gaps_found"] == 2
         assert info["segments"] == 3

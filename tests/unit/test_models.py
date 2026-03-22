@@ -9,23 +9,29 @@ import torch.nn as nn
 
 import app.builtin_profiles  # noqa: F401
 from app.config import settings
+from app.exceptions import IAQError
 from app.models import (
     BNNRegressor,
     BayesianLinear,
     CNNRegressor,
-    KANRegressor,
     LSTMRegressor,
     MLPRegressor,
     build_model,
     IAQPredictor,
     MODEL_REGISTRY,
+    _KAN_AVAILABLE,
 )
+
+if _KAN_AVAILABLE:
+    from app.models import KANRegressor
+
+_skip_no_kan = pytest.mark.skipif(not _KAN_AVAILABLE, reason="KAN requires Python 3.9")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
 WINDOW_SIZE = 5
-NUM_FEATURES = 10
+NUM_FEATURES = 15
 INPUT_DIM = WINDOW_SIZE * NUM_FEATURES
 ALL_TYPES = list(MODEL_REGISTRY.keys())  # mlp, lstm, cnn, kan, bnn
 
@@ -42,6 +48,7 @@ class TestBuildModel:
         model = build_model("mlp", WINDOW_SIZE, NUM_FEATURES)
         assert isinstance(model, MLPRegressor)
 
+    @_skip_no_kan
     def test_build_kan(self):
         model = build_model("kan", WINDOW_SIZE, NUM_FEATURES)
         assert isinstance(model, KANRegressor)
@@ -59,7 +66,7 @@ class TestBuildModel:
         assert isinstance(model, BNNRegressor)
 
     def test_build_unknown_raises(self):
-        with pytest.raises(ValueError, match="Unknown model type"):
+        with pytest.raises(IAQError, match="Unknown model type"):
             build_model("xgboost", WINDOW_SIZE, NUM_FEATURES)
 
     def test_build_uses_config_window_size(self, monkeypatch):
@@ -68,10 +75,14 @@ class TestBuildModel:
         cfg["mlp"]["window_size"] = 7
         cfg["mlp"]["num_features"] = NUM_FEATURES
         monkeypatch.setattr(settings, "_model_config_cache", cfg)
+        # Explicit args override config
         model = build_model("mlp", window_size=99, num_features=NUM_FEATURES)
-        # input_dim should reflect config window_size (7), not arg (99)
         first_layer = model.network[0]
-        assert first_layer.in_features == 7 * NUM_FEATURES
+        assert first_layer.in_features == 99 * NUM_FEATURES
+        # Config used as fallback when args are None
+        model2 = build_model("mlp")
+        first_layer2 = model2.network[0]
+        assert first_layer2.in_features == 7 * NUM_FEATURES
         monkeypatch.setattr(settings, "_model_config_cache", None)
 
     def test_build_bnn_no_batch_norm_by_default(self):
@@ -159,6 +170,7 @@ class TestBNNSpecific:
 
 # ── TestKANSpecific ──────────────────────────────────────────────────────
 
+@_skip_no_kan
 class TestKANSpecific:
     def test_regularization_loss_callable(self):
         model = KANRegressor(input_dim=INPUT_DIM, hidden_dims=[16, 8])
@@ -226,17 +238,6 @@ class TestIAQPredictor:
         p = IAQPredictor(model_type="mlp", window_size=5)
         p.load_model(str(model_artifact_dir))
         assert p._baselines == {"voc_resistance": 100000.0}
-
-    def test_load_model_legacy_baselines(self, model_artifact_dir, monkeypatch):
-        config_path = model_artifact_dir / "config.json"
-        cfg = json.loads(config_path.read_text())
-        cfg.pop("baselines", None)
-        cfg["baseline_gas_resistance"] = 80000.0
-        config_path.write_text(json.dumps(cfg))
-
-        p = IAQPredictor(model_type="mlp", window_size=5)
-        p.load_model(str(model_artifact_dir))
-        assert p._baselines == {"voc_resistance": 80000.0}
 
     def test_predict_before_load(self):
         p = IAQPredictor(model_type="mlp")

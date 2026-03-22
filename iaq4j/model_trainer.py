@@ -14,6 +14,7 @@ sys.path.insert(0, str(project_root))
 
 from training.train import train_single_model
 from training.data_sources import DataSource
+from integrations.mlflow.tracker import ExperimentTracker, MLflowTracker, NullTracker
 from app.config import settings
 
 
@@ -23,6 +24,10 @@ class ModelTrainer:
     def __init__(self):
         db_config = settings.get_database_config()
         self.influx_database = db_config.get("database")
+        try:
+            self._tracker: ExperimentTracker = MLflowTracker()
+        except ImportError:
+            self._tracker = NullTracker()
 
     def train_model(
         self,
@@ -35,7 +40,8 @@ class ModelTrainer:
     ):
         """Train a specific model type."""
         if model_type not in ["mlp", "kan", "lstm", "cnn", "bnn"]:
-            raise ValueError(f"Unsupported model type: {model_type}")
+            from app.exceptions import ConfigurationError
+            raise ConfigurationError(f"Unsupported model type: {model_type}")
 
         effective_window = window_size or settings.get_model_config(model_type).get("window_size", 10)
         source_label = data_source.name if data_source else "synthetic"
@@ -55,6 +61,7 @@ class ModelTrainer:
             num_records=num_records,
             data_source=data_source,
             resume=resume,
+            tracker=self._tracker,
         )
 
         if result and result.interrupted:
@@ -82,7 +89,8 @@ class ModelTrainer:
                     row_suffix = f" ({issue.rows_affected} rows)" if issue.rows_affected else ""
                     print(f"     [{prefix}] {issue.message}{row_suffix}")
         else:
-            raise RuntimeError(f"Training failed for {model_type.upper()} model")
+            from app.exceptions import TrainingDivergedError
+            raise TrainingDivergedError(f"Training failed for {model_type.upper()} model")
 
     def train_all_models(
         self, epochs: int = 200, window_size: int = None, num_records: int = None,

@@ -14,6 +14,8 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from app.exceptions import SchemaMismatchError
+
 logger = logging.getLogger("training.drift_analysis")
 
 
@@ -116,7 +118,10 @@ def compute_moving_averages(
         DriftReport with per-feature metrics and moving average DataFrames.
     """
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("DataFrame must have a DatetimeIndex")
+        raise SchemaMismatchError(
+            "DataFrame must have a DatetimeIndex",
+            suggestion="Ensure the DataFrame index is a pd.DatetimeIndex before calling analyze_drift().",
+        )
 
     df = df.sort_index()
     warnings = []
@@ -128,7 +133,10 @@ def compute_moving_averages(
         warnings.append(f"Features not found in data: {missing}")
 
     if not available:
-        raise ValueError(f"No requested features found. Available: {list(df.columns)}")
+        raise SchemaMismatchError(
+            f"No requested features found. Available: {list(df.columns)}",
+            suggestion="Check that the feature names match the DataFrame columns.",
+        )
 
     # Global gap detection
     gaps = _detect_gaps(df.index, gap_threshold_hours)

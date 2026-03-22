@@ -4,6 +4,7 @@ import pytest
 import app.builtin_profiles  # noqa: F401
 from app.builtin_profiles import BME680Profile
 from app.config import settings
+from app.exceptions import IAQError
 from app.profiles import get_iaq_standard, get_sensor_profile
 
 
@@ -20,7 +21,7 @@ class TestGetSensorProfile:
         monkeypatch.setattr(settings, "_model_config_cache", {
             "sensor": {"type": "nonexistent_sensor"}
         })
-        with pytest.raises(ValueError, match="Unknown sensor profile"):
+        with pytest.raises(IAQError, match="Unknown sensor profile"):
             get_sensor_profile()
         monkeypatch.setattr(settings, "_model_config_cache", None)
 
@@ -54,7 +55,7 @@ class TestGetIAQStandard:
         monkeypatch.setattr(settings, "_model_config_cache", {
             "iaq_standard": {"type": "nonexistent_standard"}
         })
-        with pytest.raises(ValueError, match="Unknown IAQ standard"):
+        with pytest.raises(IAQError, match="Unknown IAQ standard"):
             get_iaq_standard()
         monkeypatch.setattr(settings, "_model_config_cache", None)
 
@@ -73,3 +74,27 @@ class TestGetIAQStandard:
         standard = get_iaq_standard()
         assert standard.name == "bsec"
         monkeypatch.setattr(settings, "_model_config_cache", None)
+
+
+class TestExplicitSensorType:
+    """get_sensor_profile(sensor_type=...) bypasses config entirely."""
+
+    def test_explicit_bme680(self):
+        profile = get_sensor_profile(sensor_type="bme680")
+        assert isinstance(profile, BME680Profile)
+
+    def test_explicit_unknown_raises(self):
+        with pytest.raises(IAQError, match="Unknown sensor profile"):
+            get_sensor_profile(sensor_type="nonexistent")
+
+
+class TestExplicitStandardType:
+    """get_iaq_standard(standard_type=...) bypasses config entirely."""
+
+    def test_explicit_bsec(self):
+        standard = get_iaq_standard(standard_type="bsec")
+        assert standard.name == "bsec"
+
+    def test_explicit_unknown_raises(self):
+        with pytest.raises(IAQError, match="Unknown IAQ standard"):
+            get_iaq_standard(standard_type="nonexistent")

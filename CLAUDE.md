@@ -4,11 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-iaq4j — ML platform for indoor air quality prediction. **Scope: any indoor air quality sensor, any indoor IAQ standard, ML-driven prediction.** Trains and serves MLP, KAN, LSTM, CNN, and BNN models. Python 3.9.x (strict — KAN incompatible with 3.10+), FastAPI, PyTorch, InfluxDB. Default sensor: BME680. Default standard: BSEC IAQ.
+iaq4j — ML platform for indoor air quality prediction. **Scope: any indoor air quality sensor, any indoor IAQ standard, ML-driven prediction.** Trains and serves MLP, KAN, LSTM, CNN, and BNN models. Python 3.9.x for local dev (KAN in-process), or Python 3.12+ with KAN running in a Docker sidecar. FastAPI, PyTorch, InfluxDB. Default sensor: BME680. Default standard: BSEC IAQ.
 
 ## Commands
 
 ```bash
+# Initial setup
+./setup.sh
+
 # Run dev server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
@@ -26,6 +29,9 @@ python -m iaq4j cache --clear  # clear all cached data
 python -m iaq4j list
 python -m iaq4j version                             # show active semver + metrics
 python -m iaq4j verify [--model mlp]                # verify Merkle tree provenance
+
+# Resume interrupted training from checkpoint
+python -m iaq4j train --model mlp --epochs 200 --resume
 
 # Train from real InfluxDB data (standalone scripts)
 python train_models.py          # MLP + KAN
@@ -46,7 +52,7 @@ tensorboard --logdir runs/
 # MLflow experiment tracking UI
 mlflow ui --port 5000
 
-# Tests (pytest — 358+ tests, Tier 1 + Tier 2 + Tier 3 + property-based)
+# Tests (pytest — 540 tests, Tier 1 + Tier 2 + Tier 3 + property-based)
 python -m pytest                                          # all tests
 python -m pytest tests/unit/                               # unit tests only
 python -m pytest tests/integration/                        # integration tests
@@ -87,16 +93,21 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 
 **Physical quantity registry** (`quantities.yaml` + `app/quantities.py`): Central YAML table of all known physical quantities (temperature, humidity, VOC resistance, CO2, etc.) with canonical units, valid ranges, and alternate unit conversion expressions. `app/quantities.py` loads it lazily, exposes `get_quantity()`, `convert_to_canonical()`, and `list_quantities()`. Unit conversion expressions use a safe AST-based evaluator (no `eval()`). `SensorProfile.feature_quantities` maps profile feature names to quantity names in this table.
 
-**Config**: `model_config.yaml` is source of truth for model architecture, sensor profile, IAQ standard, and training hyperparameters. `database_config.yaml` for InfluxDB. Both loaded by `app/config.py:Settings` singleton (`settings`). YAML overrides hardcoded defaults.
+**KAN sidecar** (`kan_sidecar/`): Dockerized Python 3.9 container running KAN inference. Three endpoints: `/health`, `/load`, `/forward`. The main service uses `RemoteKANPredictor` (`app/remote_predictor.py`) to proxy only the raw tensor forward pass; all feature engineering, buffering, scaling, clamping, and categorization remain in-process. Configured via `KAN_REMOTE_URL` env var. When `_KAN_AVAILABLE` is True (Python 3.9), KAN runs in-process as before.
+
+**Integrations** (`integrations/`): External service integrations consolidated into a dedicated package. `integrations/mlflow/tracker.py` (ExperimentTracker ABC, NullTracker, MLflowTracker), `integrations/label_studio/data_source.py` (LabelStudioDataSource). `integrations/config.py` loads `integrations.yaml` with env var overrides. Backward-compat shims in `training/experiment_tracker.py` and `training/data_sources.py`.
+
+**Config**: `model_config.yaml` is source of truth for model architecture, sensor profile, IAQ standard, and training hyperparameters. `database_config.yaml` for InfluxDB. `integrations.yaml` for external service integrations (KAN sidecar, MLflow, Label Studio). All loaded by respective config modules. YAML overrides hardcoded defaults.
 
 ## Key Technical Details
 
-- **Features are profile-driven**: `SensorProfile.raw_features` + `SensorProfile.engineered_feature_names` determine `num_features`. BME680 default: 4 raw + 6 engineered (2 derived + 4 cyclical temporal) = 10.
+- **Features are profile-driven**: `SensorProfile.raw_features` + `SensorProfile.engineered_feature_names` determine `num_features`. BME680 default: 4 raw + 11 engineered (1 abs_humidity + 6 envelope baselines/ratios + 4 cyclical temporal) = 15.
 - **Feature engineering is code**: each `SensorProfile` subclass owns its `engineer_features()` method. No config DSL.
 - **Sliding window**: all models buffer `window_size` readings before first prediction. `IAQPredictor.buffer` manages this.
 - **Input dimensions**: Training pipeline passes flattened `(batch, window_size * num_features)` to ALL models. MLP/KAN/BNN consume it directly. LSTM reshapes internally to `(batch, window_size, num_features)`. CNN reshapes AND permutes to `(batch, num_features, window_size)` for Conv1d.
+- **Per-model window sizes** (in `model_config.yaml`): MLP=10, KAN=10, BNN=10 (flatten — temporal order irrelevant); LSTM=60, CNN=30 (temporal models need meaningful context). Access via `settings.get_model_config(model_type).get("window_size", 10)`.
 - **Scaling**: StandardScaler for features, MinMaxScaler(0,1) for targets. Scalers saved as .pkl alongside models.
-- **KAN**: `efficient-kan` vendored in `app/kan.py` to remove the external dependency (which broke on Python >3.9 on Apple Silicon).
+- **KAN**: `efficient-kan` vendored in `app/kan.py` (Python 3.9 only). On Python 3.10+, KAN import is conditional (`_KAN_AVAILABLE` flag). Set `KAN_REMOTE_URL` to proxy inference to the `kan_sidecar` Docker container. `RemoteKANPredictor` in `app/remote_predictor.py` handles the HTTP proxying.
 - **BNN**: Bayesian Neural Network with variational weight layers. Produces `kl_loss` for ELBO training. Config: `prior_sigma`, `kl_weight`.
 - **InfluxDB**: Dual support for 1.x (`influxdb` client) and 2.x (`influxdb-client`). Disabled by default.
 - **GPU**: Auto-detects MPS/CUDA/CPU via `training/utils.get_device()`.
@@ -117,7 +128,7 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 - Absolute imports: `from app.models import IAQPredictor`
 - All models inherit `torch.nn.Module`
 - Profile registration: `import app.builtin_profiles  # noqa: F401` — required wherever profiles are needed (main.py, pipeline.py)
-- Backward compat: old model artifacts with `baseline_gas_resistance` key still load; `SensorReading` accepts both old 4-field and new `readings` format
+- Backward compat: `SensorReading` accepts both old 4-field and new `readings` format
 - See `AGENTS.md` for DDD guidelines, bounded context responsibilities, code style details, and agent boundary rules (what requires confirmation vs. safe to do autonomously)
 
 ## Deployment
@@ -137,18 +148,19 @@ ssh pi@<production-host> 'journalctl -u iaq4j -f'
 
 - **Systemd service** (`deploy/iaq4j.service`): runs uvicorn on `127.0.0.1:8001` as user `pi`
 - **Nginx** (`deploy/nginx-iaq4j.conf`): reverse proxies `/iaq4j/` → `localhost:8001`
-- **Docker** (`docker-compose.yml`): CPU-only PyTorch, port 8001, mounts `trained_models/` and config YAMLs, joins `iotstack_default` network
+- **Docker** (`docker-compose.yml`): Main service (Python 3.12, CPU-only PyTorch, port 8001) + KAN sidecar (Python 3.9, port 8001 internal). Main service mounts `trained_models/` and config YAMLs, sidecar mounts `trained_models/kan/` read-only. `KAN_REMOTE_URL` env var auto-configured. Both join `iotstack_default` network
 - **`ROOT_PATH`** env var: set to `/iaq4j` in production for nginx subpath routing; defaults to `""` in dev. Must match nginx `location` path.
 - **InfluxDB writes**: `influx_manager.write_prediction()` writes to `iaq_predictions` measurement, tagged by model type. Global singleton in `app/database.py`.
 
 ## Roadmap
 
 See `docs/roadmap.md` for full details and canonical implementation order. Next up:
+- **P1: Domain Exception Hierarchy** — unify 3 error patterns into `IAQError` hierarchy
+- **P1: Ingestion Consistency Validation** — datetime/units normalization
+- **P1: Service Extraction** — extract PredictionService + SensorRegistrationService from main.py
 - **P1: LLM Readiness Phase 1** — config cache, InfluxDB reads, typed exceptions, StructuredResponse
-- **P1: Multi-source Pipeline** — depends on DAG Merkle; settles pipeline.py ingestion before MLflow
-- **P1: Label Studio DB Integration** — export InfluxDB → Label Studio for annotation
-- **P1: MCP Server** — depends on Phase 1
-- **P2: MLflow Integration** — demoted; basic integration live in `training/train.py`, remaining work adds callbacks to final pipeline shape
+- **P1: Multi-source Pipeline** — settles pipeline.py ingestion before MLflow
+- **P2: MLflow Integration** — basic integration live in `training/train.py`, remaining work adds callbacks
 - **P2: LLM-Driven Pipeline Design** — capstone
 
-Completed: physical quantity registry, semantic field mapping, artifact semver, sensor registration API, LabelStudio data source, temporal feature engineering, security hardening, pytest Tier 1+2+3 (358 tests), property-based testing, training checkpoint & resume, DAG Merkle tree, IAQ standards abstraction (BSEC, EPA AQI), sensor drift analysis & correction.
+Completed: physical quantity registry, semantic field mapping, artifact semver, sensor registration API, LabelStudio data source, temporal feature engineering, security hardening, pytest Tier 1+2+3 (540 tests), property-based testing, training checkpoint & resume, DAG Merkle tree, IAQ standards abstraction (BSEC, EPA AQI), sensor drift analysis & correction, KAN sidecar dockerization, integrations package, config decomposition (R2).

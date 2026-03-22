@@ -2,6 +2,7 @@ from pathlib import Path
 import hashlib
 import json
 import logging
+import math
 import os
 import pickle
 import random
@@ -258,6 +259,12 @@ def train_model(
                 train_loss += loss.item()
 
             train_loss /= len(train_loader)
+            if math.isnan(train_loss) or math.isinf(train_loss):
+                from app.exceptions import TrainingDivergedError
+                raise TrainingDivergedError(
+                    f"Training diverged at epoch {epoch + 1}: loss={train_loss}",
+                    suggestion="Reduce learning rate or check data for extreme values",
+                )
             train_losses.append(train_loss)
 
             model.eval()
@@ -598,7 +605,6 @@ def save_trained_model(
     window_size, model_dir, metrics,
     baselines=None, sensor_type=None, iaq_standard=None,
     sensor_id=None, firmware_version=None,
-    baseline_gas_resistance=None,  # legacy compat
     training_history=None,
     data_manifest=None,
     feature_names: List[str] = None,
@@ -612,17 +618,13 @@ def save_trained_model(
     with open(f"{model_dir}/target_scaler.pkl", "wb") as f:
         pickle.dump(target_scaler, f)
 
-    # Resolve baselines — support both new dict and legacy scalar
     if baselines is None:
         baselines = {}
-    if baseline_gas_resistance is not None and "voc_resistance" not in baselines:
-        baselines["voc_resistance"] = float(baseline_gas_resistance)
 
     config = {
         "sensor_type": sensor_type or "bme680",
         "iaq_standard": iaq_standard or "bsec",
         "baselines": {k: float(v) for k, v in baselines.items()},
-        "baseline_gas_resistance": baselines.get("voc_resistance", 0.0),
         "trained_date": pd.Timestamp.now().isoformat(),
         "window_size": window_size,
         "mae": float(metrics["mae"]),
@@ -645,7 +647,7 @@ def save_trained_model(
         from app.profiles import get_sensor_profile
         num_features = get_sensor_profile().total_features
     except Exception:
-        num_features = 6
+        num_features = 15
 
     checkpoint = {
         "state_dict": model.cpu().state_dict(),

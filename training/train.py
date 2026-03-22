@@ -3,10 +3,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import mlflow
-import mlflow.pytorch
-
 from training.data_sources import DataSource, SyntheticSource
+from integrations.mlflow.tracker import ExperimentTracker, NullTracker
 from training.pipeline import PipelineError, PipelineResult, TrainingPipeline
 
 logger = logging.getLogger(__name__)
@@ -20,6 +18,7 @@ def train_single_model(
     data_source: DataSource = None,
     experiment_name: str = "iaq4j",
     resume: bool = False,
+    tracker: Optional[ExperimentTracker] = None,
 ) -> PipelineResult:
     """Train a single model using the TrainingPipeline.
 
@@ -29,8 +28,9 @@ def train_single_model(
         window_size: Sliding window size. If None, reads from model_config.yaml.
         num_records: Number of synthetic samples (ignored when data_source is provided).
         data_source: Data source to use. Defaults to SyntheticSource.
-        experiment_name: MLflow experiment name.
+        experiment_name: Experiment name for tracking.
         resume: If True, resume from last checkpoint if available.
+        tracker: Experiment tracker. Defaults to NullTracker.
 
     Returns:
         PipelineResult on success.
@@ -38,22 +38,21 @@ def train_single_model(
     Raises:
         PipelineError: if any pipeline stage fails.
     """
+    if tracker is None:
+        tracker = NullTracker()
+
     if window_size is None:
         from app.config import settings
         window_size = settings.get_model_config(model_type).get("window_size", 10)
-    mlflow.set_experiment(experiment_name)
 
     if data_source is None:
         num_samples = num_records if num_records else 1000
         data_source = SyntheticSource(num_samples=num_samples)
 
-    mlflow.start_run(run_name=model_type)
+    tracker.start_run(model_type, experiment_name)
     try:
         def on_epoch(epoch: int, train_loss: float, val_loss: float, lr: float) -> None:
-            mlflow.log_metrics(
-                {"train_loss": train_loss, "val_loss": val_loss, "lr": lr},
-                step=epoch,
-            )
+            tracker.log_epoch(epoch, train_loss, val_loss, lr)
 
         pipeline = TrainingPipeline(
             source=data_source,
@@ -67,19 +66,19 @@ def train_single_model(
         result = pipeline.orchestrate()
 
         if result.interrupted:
-            logger.info("Training interrupted — checkpoint saved. MLflow run marked KILLED.")
-            mlflow.end_run(status="KILLED")
+            logger.info("Training interrupted — checkpoint saved. Run marked KILLED.")
+            tracker.end_run(status="KILLED")
             return result
 
         # Fix run name now that we have the semver (version is set during SAVING).
         # result.version already includes the model type prefix, e.g. "mlp-1.2.0"
-        mlflow.set_tag("mlflow.runName", result.version)
+        tracker.log_tags({"mlflow.runName": result.version})
 
         # Full param set — sensor type, iaq standard, schema fingerprint, data fingerprint, etc.
-        mlflow.log_params(pipeline.collect_run_params())
+        tracker.log_params(pipeline.collect_run_params())
 
         # Final evaluation metrics
-        mlflow.log_metrics({
+        tracker.log_metrics({
             "best_val_loss": result.training_history.get("best_val_loss", 0),
             "mae": result.metrics.get("mae", 0),
             "rmse": result.metrics.get("rmse", 0),
@@ -87,7 +86,7 @@ def train_single_model(
         })
 
         # Provenance tags
-        mlflow.set_tags({
+        tracker.log_tags({
             "version": result.version,
             "merkle_root": result.merkle_root_hash,
         })
@@ -96,19 +95,18 @@ def train_single_model(
         model_dir = Path(result.model_dir)
         for name in ("feature_scaler.pkl", "target_scaler.pkl", "data_manifest.json", "data_cleanse_report.json"):
             path = model_dir / name
-            if path.exists():
-                mlflow.log_artifact(str(path))
+            tracker.log_artifact(str(path))
 
-        mlflow.pytorch.log_model(pipeline._model, name="model")
+        tracker.log_model(pipeline.model)
 
-        mlflow.end_run()
+        tracker.end_run()
         return result
 
     except PipelineError as e:
         if e.failure_info:
-            mlflow.set_tag("failure_stage", e.failure_info.failed_state.value)
-        mlflow.end_run(status="FAILED")
+            tracker.log_tags({"failure_stage": e.failure_info.failed_state.value})
+        tracker.end_run(status="FAILED")
         raise
     except Exception:
-        mlflow.end_run(status="FAILED")
+        tracker.end_run(status="FAILED")
         raise

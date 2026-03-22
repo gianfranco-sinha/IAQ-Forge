@@ -111,7 +111,12 @@ class TestEngineerFeaturesBatchProperties:
     @given(n=st.integers(min_value=10, max_value=50))
     @h_settings(max_examples=30, suppress_health_check=_FIXTURE_OK, deadline=None)
     def test_batch_single_consistency(self, n, bme680_profile):
-        """Batch result row i must match single-reading result for row i."""
+        """Non-envelope columns must match between batch and single-reading.
+
+        Envelope columns (baseline_24h/7d, gas_ratio_24h/7d, log_ratio_24h/7d)
+        use rolling windows in batch mode but static final baselines in single
+        mode, so they intentionally differ for all rows except the last.
+        """
         rng = np.random.default_rng(42)
         raw = np.column_stack([
             rng.uniform(-40, 85, n),
@@ -122,7 +127,10 @@ class TestEngineerFeaturesBatchProperties:
         baselines = bme680_profile.compute_baselines(raw)
         batch = bme680_profile.engineer_features(raw, baselines=baselines)
 
-        # Check a few random rows
+        # Columns that are identical between batch and single:
+        # 0-3: raw, 4: abs_humidity, 11-14: cyclical
+        stable_cols = list(range(5)) + list(range(11, 15))
+
         for idx in [0, n // 2, n - 1]:
             reading = {
                 feat: float(raw[idx, i])
@@ -132,7 +140,7 @@ class TestEngineerFeaturesBatchProperties:
                 reading, baselines=baselines
             )
             np.testing.assert_allclose(
-                batch[idx], single, rtol=1e-6,
+                batch[idx, stable_cols], single[stable_cols], rtol=1e-6,
                 err_msg=f"Mismatch at row {idx}",
             )
 

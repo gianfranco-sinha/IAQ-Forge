@@ -94,6 +94,25 @@ class SensorProfile(ABC):
         return None
 
     @property
+    def warmup_seconds(self) -> float:
+        """Duration in seconds to discard after each power-on / segment start.
+
+        MOX sensors (e.g. BME680) need time for the heater plate to stabilise.
+        During warm-up, resistance readings are unreliable and should be
+        excluded from training.  Override in subclass.  0 = no filtering.
+        """
+        return 0.0
+
+    @property
+    def heater_temperature_c(self) -> Optional[float]:
+        """Heater plate temperature in °C used by the sensor firmware.
+
+        Relevant for MOX sensors where gas resistance depends on heater
+        temperature.  None = sensor has no heater / not applicable.
+        """
+        return None
+
+    @property
     @abstractmethod
     def engineered_feature_names(self) -> List[str]:
         """Names of derived features appended after raw columns."""
@@ -120,7 +139,9 @@ class SensorProfile(ABC):
         angle = 2 * np.pi * values / period
         return np.sin(angle), np.cos(angle)
 
-    def compute_baselines(self, raw: np.ndarray) -> Dict[str, float]:
+    def compute_baselines(
+        self, raw: np.ndarray, timestamps: Optional[np.ndarray] = None,
+    ) -> Dict[str, float]:
         """Compute baseline values from training data (e.g. median gas resistance).
         Override in subclass if needed. Returns empty dict by default."""
         return {}
@@ -229,33 +250,45 @@ def register_standard(name: str, cls: type) -> None:
     _STANDARD_REGISTRY[name] = cls
 
 
-def get_sensor_profile() -> SensorProfile:
-    """Return the SensorProfile configured in model_config.yaml (sensor.type).
-    Falls back to 'bme680' if not set."""
-    from app.config import settings
+def get_sensor_profile(sensor_type: Optional[str] = None) -> SensorProfile:
+    """Return a SensorProfile by name.
 
-    cfg = settings.load_model_config()
-    sensor_name = cfg.get("sensor", {}).get("type", "bme680")
-    cls = _SENSOR_REGISTRY.get(sensor_name)
+    Args:
+        sensor_type: Explicit sensor name (e.g. 'bme680').  When *None*,
+            reads ``sensor.type`` from ``model_config.yaml`` (default 'bme680').
+    """
+    if sensor_type is None:
+        from app.config import settings
+        cfg = settings.load_model_config()
+        sensor_type = cfg.get("sensor", {}).get("type", "bme680")
+
+    cls = _SENSOR_REGISTRY.get(sensor_type)
     if cls is None:
-        raise ValueError(
-            f"Unknown sensor profile: '{sensor_name}'. "
+        from app.exceptions import ConfigurationError
+        raise ConfigurationError(
+            f"Unknown sensor profile: '{sensor_type}'. "
             f"Registered: {list(_SENSOR_REGISTRY)}"
         )
     return cls()
 
 
-def get_iaq_standard() -> IAQStandard:
-    """Return the IAQStandard configured in model_config.yaml (iaq_standard.type).
-    Falls back to 'bsec' if not set."""
-    from app.config import settings
+def get_iaq_standard(standard_type: Optional[str] = None) -> IAQStandard:
+    """Return an IAQStandard by name.
 
-    cfg = settings.load_model_config()
-    std_name = cfg.get("iaq_standard", {}).get("type", "bsec")
-    cls = _STANDARD_REGISTRY.get(std_name)
+    Args:
+        standard_type: Explicit standard name (e.g. 'bsec').  When *None*,
+            reads ``iaq_standard.type`` from ``model_config.yaml`` (default 'bsec').
+    """
+    if standard_type is None:
+        from app.config import settings
+        cfg = settings.load_model_config()
+        standard_type = cfg.get("iaq_standard", {}).get("type", "bsec")
+
+    cls = _STANDARD_REGISTRY.get(standard_type)
     if cls is None:
-        raise ValueError(
-            f"Unknown IAQ standard: '{std_name}'. "
+        from app.exceptions import ConfigurationError
+        raise ConfigurationError(
+            f"Unknown IAQ standard: '{standard_type}'. "
             f"Registered: {list(_STANDARD_REGISTRY)}"
         )
     return cls()

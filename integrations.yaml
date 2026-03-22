@@ -1,0 +1,22 @@
+# integrations.yaml — Static configuration for external service integrations
+
+kan_sidecar:
+  enabled: true
+  url: "http://kan-sidecar:8001"
+  timeout_ms: 500
+  healthcheck_interval_s: 15
+
+mlflow:
+  enabled: true
+  tracking_uri: "mlruns"          # local dir or "is"
+  experiment_name: "iaq4j"
+  log_models: true
+  log_artifacts: true
+
+label_studio:
+  enabled: false
+  url: "http://localhost:8080"
+  api_key: ""  # Set LABEL_STUDIO_API_KEY env var instead
+  project_id: null
+  batch_size: 50
+  gap_threshold_seconds: 3600   # time gaps > this split into separate segments

@@ -6,6 +6,7 @@ import pytest
 
 import app.builtin_profiles  # noqa: F401
 from app.config import settings
+from app.exceptions import IAQError
 from training.pipeline import (
     IssueSeverity,
     PipelineError,
@@ -71,11 +72,11 @@ class TestPreprocessingReport:
 
 class TestPipelineValidation:
     def test_invalid_model_type_raises(self):
-        with pytest.raises(ValueError, match="Unsupported model type"):
+        with pytest.raises(IAQError, match="Unsupported model type"):
             TrainingPipeline(source=SyntheticSource(100), model_type="xgboost")
 
     def test_output_dir_outside_base_raises(self, patched_models_base):
-        with pytest.raises(ValueError, match="output_dir must be under"):
+        with pytest.raises(IAQError, match="output_dir must be under"):
             TrainingPipeline(
                 source=SyntheticSource(100),
                 model_type="mlp",
@@ -115,8 +116,8 @@ class TestPipelineE2E:
         test_cfg = settings._get_default_model_config()
         # Ensure mlp window_size matches what we pass (5)
         test_cfg["mlp"]["window_size"] = 5
-        test_cfg["mlp"]["num_features"] = 10
-        test_cfg["global"]["num_features"] = 10
+        test_cfg["mlp"]["num_features"] = 15
+        test_cfg["global"]["num_features"] = 15
         monkeypatch.setattr(settings, "_model_config_cache", test_cfg)
 
     def _run_pipeline(self, model_type="mlp", **overrides):

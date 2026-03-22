@@ -6,6 +6,23 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
+# ---------------------------------------------------------------------------
+# Module-level field mapping (configured at startup, no import-time coupling)
+# ---------------------------------------------------------------------------
+_field_mapping: Dict[str, str] = {}
+
+
+def configure_field_mapping(mapping: Dict[str, str]) -> None:
+    """Set the active field mapping (called from app startup)."""
+    global _field_mapping
+    _field_mapping = dict(mapping)
+
+
+def get_field_mapping() -> Dict[str, str]:
+    """Return the currently active field mapping."""
+    return _field_mapping
+
+
 class SensorReading(BaseModel):
     """Sensor reading input.
 
@@ -45,11 +62,7 @@ class SensorReading(BaseModel):
     def _build_readings(cls, values):
         """Apply field_mapping then merge legacy fields into readings dict."""
         if isinstance(values, dict):
-            # Apply field mapping if configured
-            from app.config import settings
-
-            cfg = settings.load_model_config()
-            field_mapping = cfg.get("sensor", {}).get("field_mapping", {})
+            field_mapping = _field_mapping
             if field_mapping:
                 readings = values.get("readings")
                 if readings and isinstance(readings, dict):
@@ -219,6 +232,7 @@ class DomainErrorCode(str, Enum):
     NEGATIVE_R2 = "NEGATIVE_R2"
     STALE_CONFIG = "STALE_CONFIG"
     CHECKPOINT_NOT_FOUND = "CHECKPOINT_NOT_FOUND"
+    CONFIGURATION = "CONFIGURATION"
 
 
 class StructuredResponse(BaseModel):

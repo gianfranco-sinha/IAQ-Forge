@@ -95,6 +95,12 @@ def create_parser():
         help="Resume training from last checkpoint",
     )
     train_parser.add_argument(
+        "--unit-overrides",
+        type=str,
+        default=None,
+        help='JSON mapping of feature names to source units, e.g. \'{"voc_resistance": "kΩ"}\'',
+    )
+    train_parser.add_argument(
         "--cache",
         action="store_true",
         help="Enable caching of InfluxDB data for faster subsequent runs",
@@ -251,6 +257,68 @@ def create_parser():
         help="Cache directory (default: cache)",
     )
 
+    # Export to Label Studio command
+    export_ls_parser = subparsers.add_parser(
+        "export-to-ls",
+        help="Export InfluxDB data to Label Studio with before/after cleanse views",
+    )
+    export_ls_parser.add_argument(
+        "--project-id",
+        type=int,
+        help="Label Studio project ID (falls back to integrations.yaml)",
+    )
+    export_ls_parser.add_argument(
+        "--hours-back",
+        type=int,
+        default=1344,
+        help="Hours of InfluxDB data to fetch (default: 1344 = 8 weeks)",
+    )
+    export_ls_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Tasks per Label Studio API call (default: 50)",
+    )
+    export_ls_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and show task stats without posting to Label Studio",
+    )
+    export_ls_parser.add_argument(
+        "--include-dropped",
+        action="store_true",
+        help="Include rows the pipeline dropped during cleansing",
+    )
+    export_ls_parser.add_argument(
+        "--database",
+        type=str,
+        help="InfluxDB database name (default: from config)",
+    )
+    export_ls_parser.add_argument(
+        "--csv",
+        type=str,
+        metavar="PATH",
+        help="Export to CSV file instead of Label Studio (e.g. --csv export.csv)",
+    )
+
+    # Label Studio command
+    ls_parser = subparsers.add_parser(
+        "label-studio",
+        help="Start Label Studio with iaq4j integration",
+    )
+    ls_parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Label Studio port (default: 8080)",
+    )
+    ls_parser.add_argument(
+        "--csv-port",
+        type=int,
+        default=9999,
+        help="CSV file server port (default: 9999)",
+    )
+
     return parser
 
 
@@ -344,6 +412,17 @@ def main():
             print(f"Training {model_type.upper()} model...")
             print(f"{'=' * 60}")
 
+            # Parse unit overrides
+            unit_overrides = None
+            if args.unit_overrides:
+                import json as _json
+
+                try:
+                    unit_overrides = _json.loads(args.unit_overrides)
+                except _json.JSONDecodeError as e:
+                    print(f"Invalid --unit-overrides JSON: {e}")
+                    sys.exit(1)
+
             # Build data source
             data_source = None
             if args.data_source == "influxdb":
@@ -354,6 +433,7 @@ def main():
                     max_records=args.max_records,
                     hours_back=args.hours_back,
                     cache=args.cache,
+                    unit_overrides=unit_overrides,
                 )
             elif args.data_source == "csv":
                 if not args.csv_path:
@@ -361,7 +441,10 @@ def main():
                     sys.exit(1)
                 from training.data_sources import CSVDataSource
 
-                data_source = CSVDataSource(args.csv_path)
+                data_source = CSVDataSource(
+                    args.csv_path,
+                    unit_overrides=unit_overrides,
+                )
             elif args.data_source == "labelstudio":
                 from training.data_sources import LabelStudioDataSource
 
@@ -577,6 +660,163 @@ def main():
                 yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
 
             print(f"\nMapping saved to {config_path} under sensor.field_mapping")
+
+    elif args.command == "export-to-ls":
+        import app.builtin_profiles  # noqa: F401
+        from app.profiles import get_iaq_standard, get_sensor_profile
+        from integrations.label_studio.exporter import cleanse_dataframe
+        from integrations.label_studio.launcher import (
+            generate_timeseries_csvs,
+            setup_project,
+            import_tasks,
+            clear_project,
+            _start_csv_server,
+            CSV_PORT,
+        )
+        from training.data_sources import InfluxDBSource
+
+        profile = get_sensor_profile()
+        standard = get_iaq_standard()
+
+        # Fetch raw data from InfluxDB
+        source = InfluxDBSource(
+            hours_back=args.hours_back,
+            database=args.database,
+        )
+
+        print(f"Connecting to {source.name}...")
+        try:
+            source.validate()
+        except Exception as e:
+            print(f"Failed to connect to InfluxDB: {e}")
+            sys.exit(1)
+
+        print(f"Fetching {args.hours_back}h of data...")
+        try:
+            raw_df = source.fetch()
+        except Exception as e:
+            print(f"Failed to fetch data: {e}")
+            sys.exit(1)
+        finally:
+            source.close()
+
+        print(f"Fetched {len(raw_df):,} raw rows")
+
+        # Get gap threshold from config
+        from integrations.config import get_integration_config as _get_int_cfg
+        _ls_cfg = _get_int_cfg("label_studio")
+        gap_threshold = _ls_cfg.get("gap_threshold_seconds", 30.0)
+
+        # Cleanse
+        clean_df, drop_reasons, ingest_report = cleanse_dataframe(
+            raw_df, profile, standard.target_column,
+            gap_threshold_seconds=gap_threshold,
+        )
+        dropped = ingest_report["dropped_rows"]
+        print(f"After cleansing: {len(clean_df):,} kept, {dropped:,} dropped")
+        print(f"Discontinuities: {ingest_report['discontinuities']} "
+              f"(gaps > {gap_threshold}s)")
+        if ingest_report["gaps"]:
+            for g in ingest_report["gaps"][:10]:
+                print(f"  gap {g['gap_seconds']:.0f}s: {g['before']} -> {g['after']}")
+            if len(ingest_report["gaps"]) > 10:
+                print(f"  ... and {len(ingest_report['gaps']) - 10} more")
+
+        if args.csv:
+            # Export to flat CSV
+            import pandas as _pd
+
+            rows = []
+            target = standard.target_column
+            raw_features = list(profile.raw_features)
+            data_columns = raw_features + ([target] if target in raw_df.columns else [])
+            kept_indices = clean_df.index
+
+            for idx in kept_indices:
+                row = {"cleanse_status": "kept"}
+                if isinstance(idx, _pd.Timestamp):
+                    row["timestamp"] = idx.isoformat()
+                for col in data_columns:
+                    row[f"raw_{col}"] = raw_df.loc[idx].get(col)
+                    row[f"clean_{col}"] = clean_df.loc[idx].get(col)
+                rows.append(row)
+
+            if args.include_dropped:
+                dropped_indices = raw_df.index.difference(kept_indices)
+                for idx in dropped_indices:
+                    row = {"cleanse_status": "dropped"}
+                    if isinstance(idx, _pd.Timestamp):
+                        row["timestamp"] = idx.isoformat()
+                    for col in data_columns:
+                        row[f"raw_{col}"] = raw_df.loc[idx].get(col)
+                    if drop_reasons is not None and idx in drop_reasons.index:
+                        row["cleanse_reason"] = str(drop_reasons.loc[idx])
+                    rows.append(row)
+
+            out_df = _pd.DataFrame(rows)
+            out_df.to_csv(args.csv, index=False)
+            print(f"Exported {len(out_df):,} rows to {args.csv}")
+        else:
+            # Generate time series CSVs split at discontinuities
+            out_dir, tasks = generate_timeseries_csvs(
+                raw_df, clean_df, profile, standard,
+                drop_reasons=drop_reasons,
+                include_dropped=args.include_dropped,
+                gap_threshold_seconds=gap_threshold,
+            )
+            print(f"Generated {len(tasks)} segment CSVs in {out_dir}/")
+
+            if args.dry_run:
+                print(f"\n[DRY RUN] Would import {len(tasks)} tasks into Label Studio")
+                return
+
+            # Get API key
+            import os
+            from integrations.config import get_integration_config
+
+            int_cfg = get_integration_config("label_studio")
+            api_key = os.environ.get("LABEL_STUDIO_API_KEY") or int_cfg.get("api_key")
+            ls_url = int_cfg.get("url", "http://localhost:8080")
+
+            if not api_key:
+                print("Set LABEL_STUDIO_API_KEY env var or api_key in integrations.yaml")
+                sys.exit(1)
+
+            # Start CSV server so Label Studio can fetch the files
+            csv_server = _start_csv_server(out_dir)
+            print(f"CSV server started on http://localhost:{CSV_PORT}/")
+
+            try:
+                # Setup project with correct labeling config
+                project_id = args.project_id
+                if project_id:
+                    # Clear existing tasks
+                    print(f"Clearing existing tasks from project {project_id}...")
+                    clear_project(ls_url, api_key, project_id)
+                else:
+                    project_id = setup_project(ls_url, api_key)
+
+                print(f"Importing {len(tasks)} tasks into project {project_id}...")
+                import_tasks(ls_url, api_key, project_id, tasks,
+                             batch_size=args.batch_size)
+                print(f"\nDone! Open http://localhost:8080/projects/{project_id}")
+                print("Keep this terminal open (CSV server must stay running).")
+                print("Press Ctrl+C to stop.")
+
+                # Keep CSV server alive
+                import signal
+                signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+                while True:
+                    import time
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                csv_server.shutdown()
+
+    elif args.command == "label-studio":
+        from integrations.label_studio.launcher import launch
+        launch(ls_port=args.port, csv_port=args.csv_port)
 
     elif args.command == "cache":
         cache_dir = Path(args.dir)

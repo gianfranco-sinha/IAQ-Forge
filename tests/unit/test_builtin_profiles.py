@@ -19,19 +19,27 @@ class TestBME680Profile:
 
     def test_engineered_feature_names(self, bme680_profile):
         assert bme680_profile.engineered_feature_names == [
-            "voc_ratio", "abs_humidity", "hour_sin", "hour_cos", "dow_sin", "dow_cos"
+            "abs_humidity",
+            "baseline_24h", "gas_ratio_24h", "log_ratio_24h",
+            "baseline_7d", "gas_ratio_7d", "log_ratio_7d",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
         ]
 
     def test_total_features(self, bme680_profile):
-        assert bme680_profile.total_features == 10
+        assert bme680_profile.total_features == 15
 
     def test_all_feature_names_length(self, bme680_profile):
-        assert len(bme680_profile.all_feature_names) == 10
+        assert len(bme680_profile.all_feature_names) == 15
 
     def test_all_feature_names_order(self, bme680_profile):
         names = bme680_profile.all_feature_names
         assert names[:4] == ["temperature", "rel_humidity", "pressure", "voc_resistance"]
-        assert names[4:] == ["voc_ratio", "abs_humidity", "hour_sin", "hour_cos", "dow_sin", "dow_cos"]
+        assert names[4:] == [
+            "abs_humidity",
+            "baseline_24h", "gas_ratio_24h", "log_ratio_24h",
+            "baseline_7d", "gas_ratio_7d", "log_ratio_7d",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+        ]
 
     def test_quality_column(self, bme680_profile):
         assert bme680_profile.quality_column == "iaq_accuracy"
@@ -62,13 +70,13 @@ class TestBME680Profile:
         result = bme680_profile.engineer_features(
             sample_raw_data, timestamps=sample_timestamps.values
         )
-        assert result.shape == (100, 10)
+        assert result.shape == (100, 15)
 
     def test_engineer_features_shape_without_timestamps(
         self, bme680_profile, sample_raw_data
     ):
         result = bme680_profile.engineer_features(sample_raw_data)
-        assert result.shape == (100, 10)
+        assert result.shape == (100, 15)
 
     def test_engineer_features_cyclical_range(
         self, bme680_profile, sample_raw_data, sample_timestamps
@@ -76,8 +84,8 @@ class TestBME680Profile:
         result = bme680_profile.engineer_features(
             sample_raw_data, timestamps=sample_timestamps.values
         )
-        # Columns 6-9 are cyclical features (hour_sin, hour_cos, dow_sin, dow_cos)
-        for col in range(6, 10):
+        # Columns 11-14 are cyclical features (hour_sin, hour_cos, dow_sin, dow_cos)
+        for col in range(11, 15):
             assert np.all(result[:, col] >= -1.0 - 1e-10)
             assert np.all(result[:, col] <= 1.0 + 1e-10)
 
@@ -88,51 +96,52 @@ class TestBME680Profile:
             sample_raw_data, timestamps=sample_timestamps.values
         )
         # hour: sin²+cos² ≈ 1
-        hour_norm = result[:, 6] ** 2 + result[:, 7] ** 2
+        hour_norm = result[:, 11] ** 2 + result[:, 12] ** 2
         np.testing.assert_allclose(hour_norm, 1.0, atol=1e-10)
         # dow: sin²+cos² ≈ 1
-        dow_norm = result[:, 8] ** 2 + result[:, 9] ** 2
+        dow_norm = result[:, 13] ** 2 + result[:, 14] ** 2
         np.testing.assert_allclose(dow_norm, 1.0, atol=1e-10)
 
     def test_engineer_features_voc_ratio(
         self, bme680_profile, sample_raw_data
     ):
-        baselines = {"voc_resistance": 100000.0}
-        result = bme680_profile.engineer_features(sample_raw_data, baselines=baselines)
-        expected = sample_raw_data[:, 3] / 100000.0
-        np.testing.assert_allclose(result[:, 4], expected, rtol=1e-10)
+        """gas_ratio_24h (col 6) should be positive and finite."""
+        result = bme680_profile.engineer_features(sample_raw_data)
+        gas_ratio_24h = result[:, 6]
+        assert np.all(gas_ratio_24h > 0)
+        assert np.all(np.isfinite(gas_ratio_24h))
 
     def test_engineer_features_abs_humidity_positive(
         self, bme680_profile, sample_raw_data
     ):
         result = bme680_profile.engineer_features(sample_raw_data)
-        assert np.all(result[:, 5] > 0)  # abs_humidity > 0
+        assert np.all(result[:, 4] > 0)  # abs_humidity is now col 4
 
     def test_engineer_features_single_length(
         self, bme680_profile, sample_reading
     ):
         result = bme680_profile.engineer_features_single(sample_reading)
-        assert result.shape == (10,)
+        assert result.shape == (15,)
 
     def test_engineer_features_single_with_timestamp(
         self, bme680_profile, sample_reading
     ):
         ts = datetime(2026, 1, 15, 12, 0, 0)
         result = bme680_profile.engineer_features_single(sample_reading, timestamp=ts)
-        # hour_sin (idx 6) and hour_cos (idx 7) should be non-trivial for hour=12
+        # hour_sin (idx 11) and hour_cos (idx 12) should be non-trivial for hour=12
         # sin(2π*12/24)=0, cos(2π*12/24)=-1
-        assert abs(result[6] - 0.0) < 1e-10  # hour_sin at noon
-        assert abs(result[7] - (-1.0)) < 1e-10  # hour_cos at noon
+        assert abs(result[11] - 0.0) < 1e-10  # hour_sin at noon
+        assert abs(result[12] - (-1.0)) < 1e-10  # hour_cos at noon
 
     def test_engineer_features_single_without_timestamp(
         self, bme680_profile, sample_reading
     ):
         result = bme680_profile.engineer_features_single(sample_reading)
         # Without timestamp: hour=0, dow=0 → sin(0)=0, cos(0)=1
-        assert abs(result[6] - 0.0) < 1e-10  # hour_sin
-        assert abs(result[7] - 1.0) < 1e-10  # hour_cos
-        assert abs(result[8] - 0.0) < 1e-10  # dow_sin
-        assert abs(result[9] - 1.0) < 1e-10  # dow_cos
+        assert abs(result[11] - 0.0) < 1e-10  # hour_sin
+        assert abs(result[12] - 1.0) < 1e-10  # hour_cos
+        assert abs(result[13] - 0.0) < 1e-10  # dow_sin
+        assert abs(result[14] - 1.0) < 1e-10  # dow_cos
 
 
 # ── BSECStandard ───────────────────────────────────────────────────────────

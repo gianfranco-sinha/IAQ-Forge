@@ -114,40 +114,43 @@ class TestPipelineResultWarnings:
         assert "(3 rows)" in result.warnings[0]
 
 
-class TestClassifyError:
-    def _classify(self, state_name, msg):
-        from training.pipeline import TrainingPipeline, PipelineState
-        state = PipelineState[state_name]
-        return TrainingPipeline._classify_error(state, ValueError(msg))
+class TestIAQErrors:
+    """Tests that IAQError subtypes carry correct DomainErrorCode values."""
 
-    def test_no_data(self):
-        code, suggestion = self._classify("INGESTION", "no data returned from source")
-        assert code == "NO_DATA"
+    def test_no_data_code(self):
+        from app.exceptions import NoDataError
+        err = NoDataError("empty result")
+        assert err.code.value == "NO_DATA"
 
-    def test_empty(self):
-        code, _ = self._classify("INGESTION", "DataFrame is empty")
-        assert code == "NO_DATA"
+    def test_insufficient_data_code(self):
+        from app.exceptions import InsufficientDataError
+        err = InsufficientDataError("too few samples")
+        assert err.code.value == "INSUFFICIENT_DATA"
 
-    def test_insufficient(self):
-        code, _ = self._classify("WINDOWING", "too few samples for window")
-        assert code == "INSUFFICIENT_DATA"
+    def test_training_diverged_code(self):
+        from app.exceptions import TrainingDivergedError
+        err = TrainingDivergedError("loss is NaN")
+        assert err.code.value == "TRAINING_DIVERGED"
 
-    def test_diverged_nan(self):
-        code, _ = self._classify("TRAINING", "loss is nan at epoch 5")
-        assert code == "TRAINING_DIVERGED"
+    def test_checkpoint_not_found_code(self):
+        from app.exceptions import CheckpointNotFoundError
+        err = CheckpointNotFoundError("no checkpoint")
+        assert err.code.value == "CHECKPOINT_NOT_FOUND"
 
-    def test_checkpoint_not_found(self):
-        code, _ = self._classify("TRAINING", "checkpoint not found at path")
-        assert code == "CHECKPOINT_NOT_FOUND"
+    def test_influx_unreachable_code(self):
+        from app.exceptions import InfluxUnreachableError
+        err = InfluxUnreachableError("connection refused")
+        assert err.code.value == "INFLUX_UNREACHABLE"
 
-    def test_connection_refused(self):
-        code, _ = self._classify("SOURCE_ACCESS", "connection refused")
-        assert code == "INFLUX_UNREACHABLE"
+    def test_suggestion_optional(self):
+        from app.exceptions import NoDataError
+        err = NoDataError("empty")
+        assert err.suggestion is None
 
-    def test_unknown_error(self):
-        code, suggestion = self._classify("TRAINING", "something unexpected")
-        assert code is None
-        assert suggestion is None
+    def test_suggestion_set(self):
+        from app.exceptions import NoDataError
+        err = NoDataError("empty", suggestion="widen range")
+        assert err.suggestion == "widen range"
 
 
 # ── D. StructuredResponse + DomainErrorCode ───────────────────────────────
@@ -159,7 +162,7 @@ class TestDomainErrorCode:
         expected = {
             "NO_DATA", "INSUFFICIENT_DATA", "SCHEMA_MISMATCH",
             "INFLUX_UNREACHABLE", "TRAINING_DIVERGED", "NEGATIVE_R2",
-            "STALE_CONFIG", "CHECKPOINT_NOT_FOUND",
+            "STALE_CONFIG", "CHECKPOINT_NOT_FOUND", "CONFIGURATION",
         }
         actual = {e.value for e in DomainErrorCode}
         assert actual == expected
@@ -237,8 +240,9 @@ class TestFeatureNameIntegrity:
         ts.fit([[0.0]])
 
         names = ["temperature", "humidity", "pressure", "voc_resistance",
-                 "abs_humidity", "voc_ratio", "hour_sin", "hour_cos",
-                 "dow_sin", "dow_cos"]
+                 "abs_humidity", "baseline_24h", "gas_ratio_24h", "log_ratio_24h",
+                 "baseline_7d", "gas_ratio_7d", "log_ratio_7d",
+                 "hour_sin", "hour_cos", "dow_sin", "dow_cos"]
 
         save_trained_model(
             model=model, feature_scaler=fs, target_scaler=ts,

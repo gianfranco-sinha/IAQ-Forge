@@ -1,7 +1,14 @@
 """Tier 2: Settings config loading, caching, per-model merge, training defaults."""
 import pytest
 
-from app.config import Settings, settings
+from app.config import (
+    APIConfig,
+    DatabaseConfig,
+    KANSidecarConfig,
+    ModelConfig,
+    Settings,
+    settings,
+)
 
 
 class TestLoadModelConfig:
@@ -176,3 +183,125 @@ class TestGetTrainingConfig:
                      "lr_scheduler_factor"):
             assert key in result, f"Missing key: {key}"
         monkeypatch.setattr(settings, "_model_config_cache", None)
+
+
+# ---------------------------------------------------------------------------
+# Sub-config access tests (Config Decomposition R2)
+# ---------------------------------------------------------------------------
+
+
+class TestSubConfigAccess:
+    """Verify sub-config instances are accessible and correctly populated."""
+
+    def test_api_config_exists(self):
+        assert settings.api is not None
+        assert isinstance(settings.api, APIConfig)
+
+    def test_api_config_fields(self):
+        assert settings.api.title == settings.API_TITLE
+        assert settings.api.version == settings.API_VERSION
+        assert settings.api.host == settings.HOST
+        assert settings.api.port == settings.PORT
+        assert settings.api.api_key == settings.API_KEY
+        assert settings.api.environment == settings.ENVIRONMENT
+
+    def test_model_config_exists(self):
+        assert settings.model is not None
+        assert isinstance(settings.model, ModelConfig)
+
+    def test_model_config_fields(self):
+        assert settings.model.config_path == settings.MODEL_CONFIG_PATH
+        assert settings.model.default_model == settings.DEFAULT_MODEL
+        assert settings.model.trained_models_base == settings.TRAINED_MODELS_BASE
+
+    def test_database_config_exists(self):
+        assert settings.database is not None
+        assert isinstance(settings.database, DatabaseConfig)
+
+    def test_database_config_fields(self):
+        assert settings.database.config_path == settings.DATABASE_CONFIG_PATH
+        assert settings.database.influx_enabled == settings.INFLUX_ENABLED
+        assert settings.database.influx_host == settings.INFLUX_HOST
+        assert settings.database.influx_port == settings.INFLUX_PORT
+
+    def test_kan_sidecar_config_exists(self):
+        assert settings.kan_sidecar is not None
+        assert isinstance(settings.kan_sidecar, KANSidecarConfig)
+
+    def test_kan_sidecar_config_fields(self):
+        assert settings.kan_sidecar.remote_url == settings.KAN_REMOTE_URL
+        assert settings.kan_sidecar.remote_timeout == settings.KAN_REMOTE_TIMEOUT
+
+
+class TestModelSubConfigMethods:
+    """ModelConfig owns its own load/get/invalidate methods."""
+
+    def test_load_model_config(self):
+        result = settings.model.load_model_config()
+        assert isinstance(result, dict)
+
+    def test_get_model_config(self):
+        result = settings.model.get_model_config("mlp")
+        assert "window_size" in result
+
+    def test_invalidate_cache(self):
+        settings.model.load_model_config()
+        settings.model.invalidate_cache()
+        assert settings.model._cache is None
+
+    def test_default_model_config(self):
+        default = ModelConfig._get_default_model_config()
+        for key in ("global", "mlp", "kan", "lstm", "cnn", "bnn"):
+            assert key in default
+
+
+class TestDatabaseSubConfigMethods:
+    """DatabaseConfig owns its own load/get/invalidate methods."""
+
+    def test_load_database_config(self):
+        result = settings.database.load_database_config()
+        assert isinstance(result, dict)
+
+    def test_get_database_config(self):
+        result = settings.database.get_database_config()
+        assert "host" in result
+        assert "port" in result
+
+    def test_invalidate_cache(self):
+        settings.database.load_database_config()
+        settings.database.invalidate_cache()
+        assert settings.database._cache is None
+
+    def test_default_database_config(self):
+        default = DatabaseConfig._get_default_database_config()
+        assert "influxdb" in default
+        assert "database" in default
+        assert "logging" in default
+
+
+class TestBackwardCompatDelegation:
+    """Settings facade still delegates correctly to sub-configs."""
+
+    def test_invalidate_clears_both(self):
+        # Load to populate caches
+        settings.load_model_config()
+        settings.load_database_config()
+        settings.invalidate_config_cache()
+        assert settings._model_config_cache is None
+        assert settings._database_config_cache is None
+        assert settings.model._cache is None
+        assert settings.database._cache is None
+
+    def test_load_model_config_delegates(self, monkeypatch):
+        monkeypatch.setattr(settings, "_model_config_cache", None)
+        result = settings.load_model_config()
+        assert isinstance(result, dict)
+
+    def test_get_model_config_delegates(self, monkeypatch):
+        monkeypatch.setattr(settings, "_model_config_cache", None)
+        result = settings.get_model_config("mlp")
+        assert "window_size" in result
+
+    def test_get_database_config_delegates(self):
+        result = settings.get_database_config()
+        assert "host" in result

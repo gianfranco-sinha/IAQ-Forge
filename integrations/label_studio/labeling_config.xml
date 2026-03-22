@@ -1,0 +1,83 @@
+<!--
+  Label Studio labeling config for iaq4j before/after cleanse review.
+  Combined overview + separate panels per measurement.
+-->
+<View>
+  <Header value="Date: $date — Segment $segment — $num_readings readings ($start to $end, $duration_minutes min)"/>
+
+  <!-- Combined overview: all raw vs clean on one chart -->
+  <Header value="Combined Overview" style="margin-top:8px; color:#333;"/>
+  <TimeSeries name="ts_combined" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S">
+    <Channel column="raw_iaq" legend="Raw IAQ" strokeColor="#d32f2f" />
+    <Channel column="clean_iaq" legend="Clean IAQ" strokeColor="#388e3c" />
+    <Channel column="raw_temperature" legend="Raw Temp" strokeColor="#f57c00" />
+    <Channel column="clean_temperature" legend="Clean Temp" strokeColor="#1976d2" />
+    <Channel column="raw_rel_humidity" legend="Raw Humidity" strokeColor="#7b1fa2" />
+    <Channel column="clean_rel_humidity" legend="Clean Humidity" strokeColor="#00796b" />
+    <Channel column="raw_voc_resistance" legend="Raw VOC Res" strokeColor="#c62828" />
+    <Channel column="clean_voc_resistance" legend="Clean VOC Res" strokeColor="#2e7d32" />
+    <Channel column="raw_pressure" legend="Raw Pressure" strokeColor="#795548" />
+    <Channel column="clean_pressure" legend="Clean Pressure" strokeColor="#607d8b" />
+  </TimeSeries>
+
+  <!-- Separate panels per measurement -->
+  <Header value="IAQ" style="margin-top:16px; color:#333;"/>
+  <TimeSeries name="ts_iaq" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S" fixedScale="true">
+    <Channel column="raw_iaq" legend="Raw IAQ" strokeColor="#d32f2f" />
+    <Channel column="clean_iaq" legend="Clean IAQ" strokeColor="#388e3c" />
+  </TimeSeries>
+
+  <Header value="Temperature" style="margin-top:8px; color:#333;"/>
+  <TimeSeries name="ts_temp" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S" fixedScale="true">
+    <Channel column="raw_temperature" legend="Raw Temp" strokeColor="#f57c00" />
+    <Channel column="clean_temperature" legend="Clean Temp" strokeColor="#1976d2" />
+  </TimeSeries>
+
+  <Header value="Humidity" style="margin-top:8px; color:#333;"/>
+  <TimeSeries name="ts_hum" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S" fixedScale="true">
+    <Channel column="raw_rel_humidity" legend="Raw Humidity" strokeColor="#7b1fa2" />
+    <Channel column="clean_rel_humidity" legend="Clean Humidity" strokeColor="#00796b" />
+  </TimeSeries>
+
+  <Header value="VOC Resistance" style="margin-top:8px; color:#333;"/>
+  <TimeSeries name="ts_voc" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S" fixedScale="true">
+    <Channel column="raw_voc_resistance" legend="Raw VOC Res" strokeColor="#c62828" />
+    <Channel column="clean_voc_resistance" legend="Clean VOC Res" strokeColor="#2e7d32" />
+  </TimeSeries>
+
+  <Header value="Pressure" style="margin-top:8px; color:#333;"/>
+  <TimeSeries name="ts_press" value="$timeseries" valueType="url"
+              timeColumn="timestamp" timeFormat="%Y-%m-%dT%H:%M:%S"
+              timeDisplayFormat="%H:%M:%S" fixedScale="true">
+    <Channel column="raw_pressure" legend="Raw Pressure" strokeColor="#795548" />
+    <Channel column="clean_pressure" legend="Clean Pressure" strokeColor="#607d8b" />
+  </TimeSeries>
+
+  <!-- Annotation controls -->
+  <Header value="Annotation" style="margin-top:16px; color:#333;"/>
+
+  <TimeSeriesLabels name="labels" toName="ts_iaq">
+    <Label value="anomaly" background="#ff0000"/>
+    <Label value="drift" background="#ff9800"/>
+    <Label value="good" background="#4caf50"/>
+  </TimeSeriesLabels>
+
+  <Choices name="day_quality" toName="ts_iaq" choice="single" showInline="true">
+    <Choice value="accept"/>
+    <Choice value="reject"/>
+  </Choices>
+
+  <Number name="iaq_corrected" toName="ts_iaq"
+          min="0" max="500" step="0.1"
+          required="false"/>
+</View>

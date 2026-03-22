@@ -6,12 +6,13 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
 
 from app.config import settings
+from app.exceptions import ConfigurationError, SchemaMismatchError
 
 logger = logging.getLogger("training.data_sources")
 
@@ -41,6 +42,16 @@ class DataSource(ABC):
         ...
 
     @property
+    def provided_units(self) -> Dict[str, str]:
+        """Map feature names to units this source provides (if non-canonical).
+
+        Empty dict = assume canonical units (default).  When non-empty, the
+        pipeline merges these over the sensor profile's ``feature_units`` so
+        source-level declarations take precedence during unit conversion.
+        """
+        return {}
+
+    @property
     def metadata(self) -> dict:
         """Source-specific metadata for data provenance tracking."""
         return {}
@@ -58,6 +69,7 @@ class InfluxDBSource(DataSource):
         max_records=None,
         cache: bool = False,
         cache_dir: str = "cache",
+        unit_overrides: Optional[Dict[str, str]] = None,
     ):
         self.measurement = measurement
         self.hours_back = hours_back
@@ -67,6 +79,7 @@ class InfluxDBSource(DataSource):
         self._client = None
         self._cache_enabled = cache
         self._cache_dir = Path(cache_dir)
+        self._unit_overrides = unit_overrides or {}
 
     def _get_cache_key(self) -> str:
         """Generate a unique cache key based on source parameters."""
@@ -109,6 +122,10 @@ class InfluxDBSource(DataSource):
         db = self._database or settings.INFLUX_DATABASE
         return f"InfluxDB({settings.INFLUX_HOST}:{settings.INFLUX_PORT}/{db})"
 
+    @property
+    def provided_units(self) -> Dict[str, str]:
+        return self._unit_overrides
+
     def validate(self) -> None:
         """Connect to InfluxDB and verify it's reachable."""
         from influxdb import DataFrameClient
@@ -131,8 +148,12 @@ class InfluxDBSource(DataSource):
             )
             self._client.ping()
         except Exception as e:
-            logger.error("Failed to connect to InfluxDB: %s", e)
-            raise
+            from app.exceptions import InfluxUnreachableError
+
+            raise InfluxUnreachableError(
+                f"Failed to connect to InfluxDB at {settings.INFLUX_HOST}:{settings.INFLUX_PORT}: {e}",
+                suggestion="Check host/port/network",
+            ) from e
 
     def fetch(self) -> pd.DataFrame:
         """Fetch sensor data from InfluxDB, filter by quality column."""
@@ -142,7 +163,10 @@ class InfluxDBSource(DataSource):
             return cached
 
         if self._client is None:
-            raise RuntimeError("validate() must be called before fetch()")
+            raise ConfigurationError(
+                "validate() must be called before fetch()",
+                suggestion="Call source.validate() before source.fetch()",
+            )
 
         from app.profiles import get_iaq_standard, get_sensor_profile
 
@@ -172,7 +196,12 @@ class InfluxDBSource(DataSource):
         result = self._client.query(query)
 
         if self.measurement not in result:
-            raise ValueError(f"No data found in measurement '{self.measurement}'")
+            from app.exceptions import NoDataError
+
+            raise NoDataError(
+                f"No data found in measurement '{self.measurement}'",
+                suggestion="Check measurement name or widen time range",
+            )
 
         df = result[self.measurement]
 
@@ -227,9 +256,15 @@ class InfluxDBSource(DataSource):
 class CSVDataSource(DataSource):
     """Loads training data from a CSV file."""
 
-    def __init__(self, csv_path: str, field_mapping: Optional[dict] = None):
+    def __init__(
+        self,
+        csv_path: str,
+        field_mapping: Optional[dict] = None,
+        unit_overrides: Optional[Dict[str, str]] = None,
+    ):
         self.csv_path = csv_path
         self._field_mapping = field_mapping
+        self._unit_overrides = unit_overrides or {}
 
     @property
     def name(self) -> str:
@@ -250,6 +285,10 @@ class CSVDataSource(DataSource):
         return meta
 
     @property
+    def provided_units(self) -> Dict[str, str]:
+        return self._unit_overrides
+
+    @property
     def field_mapping(self) -> dict:
         if self._field_mapping is not None:
             return self._field_mapping
@@ -262,7 +301,8 @@ class CSVDataSource(DataSource):
 
         p = Path(self.csv_path)
         if not p.is_file():
-            raise FileNotFoundError(f"CSV file not found: {self.csv_path}")
+            from app.exceptions import ConfigurationError
+            raise ConfigurationError(f"CSV file not found: {self.csv_path}")
         logger.info("Validated CSV source: %s", self.csv_path)
 
     def fetch(self) -> pd.DataFrame:
@@ -296,10 +336,10 @@ class CSVDataSource(DataSource):
         required = list(profile.raw_features) + [standard.target_column]
         missing = [c for c in required if c not in df.columns]
         if missing:
-            raise ValueError(
+            raise SchemaMismatchError(
                 f"CSV missing required columns: {missing}. "
-                f"Available: {list(df.columns)}. "
-                f"Consider running 'python -m iaq4j map-fields --source {self.csv_path} --save' first."
+                f"Available: {list(df.columns)}.",
+                suggestion=f"Run 'python -m iaq4j map-fields --source {self.csv_path} --save' to create a field mapping.",
             )
 
         # Filter by quality column if available
@@ -318,284 +358,38 @@ class CSVDataSource(DataSource):
         return df
 
 
-class LabelStudioDataSource(DataSource):
-    """Fetches labeled training data from a Label Studio project.
+# LabelStudioDataSource moved to integrations.label_studio.data_source
+# Backward-compat import:
+from integrations.label_studio.data_source import LabelStudioDataSource  # noqa: F401
 
-    Tasks in the project are expected to have sensor readings in their ``data``
-    payload (keyed by the active SensorProfile's raw_features plus the
-    IAQStandard's target_column).  Annotations may contain a corrected IAQ
-    number or a "reject" flag; unannotated tasks use the original BSEC value
-    from the task data.
 
-    Annotation schema (defined in Label Studio labeling config):
-        - Number tag named ``iaq_corrected``: override the IAQ value for a task.
-        - Choices tag with choice ``"reject"``: exclude the task from training.
+class ParquetSource(DataSource):
+    """Data source from a local Parquet file."""
 
-    See fetch() for the full annotation resolution logic (Stage 2).
-    """
-
-    def __init__(self, project_id: int = None, url: str = None, api_key: str = None):
-        """
-        Args:
-            project_id: Label Studio project ID. Falls back to label_studio.project_id
-                in model_config.yaml.
-            url: Label Studio server URL. Falls back to label_studio.url in config.
-            api_key: API token. Falls back to LABEL_STUDIO_API_KEY env var, then
-                label_studio.api_key in config.
-        """
-        from app.config import settings
-
-        ls_cfg = settings.get_label_studio_config()
-
-        self._url = (url or ls_cfg["url"]).rstrip("/")
-        self._api_key = api_key or ls_cfg["api_key"]
-        self._project_id = project_id or ls_cfg.get("project_id")
-        self._fetch_stats: Optional[dict] = None
+    def __init__(self, path, end_date=None):
+        self._path = Path(path)
+        self._end_date = end_date
 
     @property
     def name(self) -> str:
-        return f"LabelStudio({self._url}/projects/{self._project_id})"
-
-    def validate(self) -> None:
-        """Verify Label Studio is reachable and the project exists."""
-        import requests
-
-        if not self._project_id:
-            raise ValueError(
-                "Label Studio project_id is required. "
-                "Set label_studio.project_id in model_config.yaml "
-                "or pass --ls-project-id on the CLI."
-            )
-        if not self._api_key:
-            raise ValueError(
-                "Label Studio API key is required. "
-                "Set LABEL_STUDIO_API_KEY env var or label_studio.api_key in model_config.yaml."
-            )
-
-        headers = {"Authorization": f"Token {self._api_key}"}
-
-        # Health check
-        try:
-            resp = requests.get(f"{self._url}/api/health", headers=headers, timeout=10)
-            resp.raise_for_status()
-        except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(
-                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})"
-            ) from e
-        except requests.exceptions.HTTPError as e:
-            raise ConnectionError(
-                f"Label Studio health check failed ({resp.status_code}): {e}"
-            ) from e
-
-        # Project existence check
-        try:
-            resp = requests.get(
-                f"{self._url}/api/projects/{self._project_id}",
-                headers=headers,
-                timeout=10,
-            )
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError:
-            if resp.status_code == 404:
-                raise ValueError(
-                    f"Label Studio project {self._project_id} not found at {self._url}. "
-                    f"Check the project ID."
-                )
-            raise
-
-        project_title = resp.json().get("title", f"project {self._project_id}")
-        logger.info(
-            "Connected to Label Studio project %d: '%s' (%s)",
-            self._project_id,
-            project_title,
-            self._url,
-        )
-
-    def fetch(self) -> pd.DataFrame:
-        """Export labeled tasks and assemble a training DataFrame.
-
-        Annotation resolution logic:
-        - Tasks with a ``Choices`` result containing ``"reject"`` (case-insensitive)
-          are excluded entirely.
-        - Tasks with a ``Number`` result named ``iaq_corrected`` have their target
-          value overridden by the annotator-supplied number.
-        - Unannotated tasks (or tasks whose annotations are all cancelled/skipped)
-          use the original target value from the task ``data`` payload.
-
-        The active ``SensorProfile`` and ``IAQStandard`` determine which columns
-        are required.  ``sensor.field_mapping`` from ``model_config.yaml`` is
-        applied to translate external field names to internal ones.
-
-        Returns a DataFrame whose columns include all of ``SensorProfile.raw_features``
-        plus ``IAQStandard.target_column``.  The index is a ``DatetimeIndex`` when a
-        timestamp column is detectable, otherwise a plain RangeIndex (the pipeline
-        handles both).
-        """
-        import requests
-
-        from app.config import settings
-        from app.profiles import get_iaq_standard, get_sensor_profile
-
-        profile = get_sensor_profile()
-        standard = get_iaq_standard()
-        cfg = settings.load_model_config()
-        field_mapping = cfg.get("sensor", {}).get("field_mapping", {})
-
-        headers = {"Authorization": f"Token {self._api_key}"}
-
-        logger.info(
-            "Exporting tasks from Label Studio project %d (%s)…",
-            self._project_id,
-            self._url,
-        )
-        resp = requests.get(
-            f"{self._url}/api/projects/{self._project_id}/export",
-            headers=headers,
-            params={"exportType": "JSON"},
-            timeout=120,
-        )
-        resp.raise_for_status()
-        tasks = resp.json()
-        logger.info("Received %d tasks from Label Studio", len(tasks))
-
-        stats = {
-            "total": len(tasks),
-            "accepted": 0,
-            "rejected": 0,
-            "iaq_corrected": 0,
-            "unannotated": 0,
-        }
-        rows = []
-
-        for task in tasks:
-            task_data = dict(task.get("data", {}))
-            annotations = task.get("annotations", [])
-
-            # ── Resolve annotations ────────────────────────────────────────
-            rejected = False
-            iaq_override = None
-
-            for annotation in annotations:
-                if annotation.get("was_cancelled") or annotation.get("skipped"):
-                    continue
-                for result in annotation.get("result", []):
-                    r_type = result.get("type", "")
-                    from_name = result.get("from_name", "")
-                    value = result.get("value", {})
-
-                    if r_type == "choices":
-                        choices = [c.lower() for c in value.get("choices", [])]
-                        if "reject" in choices:
-                            rejected = True
-                            break
-                    elif r_type == "number" and from_name == "iaq_corrected":
-                        iaq_override = value.get("number")
-                if rejected:
-                    break
-
-            if rejected:
-                stats["rejected"] += 1
-                continue
-
-            # ── Apply field mapping (external → internal) ──────────────────
-            if field_mapping:
-                task_data = {field_mapping.get(k, k): v for k, v in task_data.items()}
-
-            # ── Apply IAQ target override or track unannotated ─────────────
-            active_annotations = [
-                a
-                for a in annotations
-                if not a.get("was_cancelled") and not a.get("skipped")
-            ]
-            if iaq_override is not None:
-                task_data[standard.target_column] = float(iaq_override)
-                stats["iaq_corrected"] += 1
-            elif not active_annotations:
-                stats["unannotated"] += 1
-
-            # ── Prefer task-level created_at as timestamp fallback ─────────
-            if "created_at" in task and "_created_at" not in task_data:
-                task_data["_created_at"] = task["created_at"]
-
-            stats["accepted"] += 1
-            rows.append(task_data)
-
-        logger.info(
-            "LabelStudio annotation resolution: %d total → %d accepted "
-            "(%d iaq_corrected, %d unannotated, %d rejected)",
-            stats["total"],
-            stats["accepted"],
-            stats["iaq_corrected"],
-            stats["unannotated"],
-            stats["rejected"],
-        )
-
-        if not rows:
-            raise ValueError(
-                f"No usable tasks in Label Studio project {self._project_id} "
-                f"(total={stats['total']}, rejected={stats['rejected']}). "
-                f"Ensure tasks have data payloads and are not all rejected."
-            )
-
-        df = pd.DataFrame(rows)
-
-        # ── Detect and set timestamp index ─────────────────────────────────
-        ts_candidates = {"timestamp", "time", "datetime", "date", "ts", "_created_at"}
-        for col in list(df.columns):
-            if col.lower().strip() in ts_candidates:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-                df = df.set_index(col)
-                logger.info("Set timestamp index from column: %s", col)
-                break
-
-        # ── Validate required columns ──────────────────────────────────────
-        required = list(profile.raw_features) + [standard.target_column]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise ValueError(
-                f"Label Studio tasks are missing required fields: {missing}. "
-                f"Available: {list(df.columns)}. "
-                f"Check that task data payloads include these fields, "
-                f"or add a sensor.field_mapping in model_config.yaml."
-            )
-
-        # ── Quality filtering ──────────────────────────────────────────────
-        if (
-            profile.quality_column
-            and profile.quality_column in df.columns
-            and profile.quality_min is not None
-        ):
-            before = len(df)
-            df = df[df[profile.quality_column] >= profile.quality_min]
-            logger.info(
-                "Quality filter (%s >= %s): %d → %d rows",
-                profile.quality_column,
-                profile.quality_min,
-                before,
-                len(df),
-            )
-
-        df = df.dropna(subset=required)
-
-        self._fetch_stats = stats
-
-        logger.info(
-            "LabelStudio fetch complete: %d training rows (columns: %s)",
-            len(df),
-            list(df.columns),
-        )
-        return df
+        return f"Parquet({self._path.name})"
 
     @property
-    def metadata(self) -> dict:
-        meta = {
-            "source_type": "label_studio",
-            "url": self._url,
-            "project_id": self._project_id,
-        }
-        if self._fetch_stats is not None:
-            meta["annotation_stats"] = self._fetch_stats
-        return meta
+    def provided_units(self) -> Dict[str, str]:
+        return {}
+
+    def validate(self) -> None:
+        if not self._path.exists():
+            raise FileNotFoundError(f"Not found: {self._path}")
+
+    def fetch(self) -> pd.DataFrame:
+        df = pd.read_parquet(self._path)
+        if self._end_date is not None:
+            df = df[df.index < self._end_date]
+        return df
+
+    def close(self):
+        pass
 
 
 class SyntheticSource(DataSource):

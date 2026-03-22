@@ -68,19 +68,18 @@ class TestSensorReading:
         assert r.get_readings() == {}
 
     def test_field_mapping(self, monkeypatch):
-        from app.config import Settings
-        monkeypatch.setattr(
-            Settings, "load_model_config",
-            lambda self: {"sensor": {"field_mapping": {"gas_resistance": "voc_resistance"}}},
-        )
-        from app.schemas import SensorReading
-        r = SensorReading(
-            readings={"gas_resistance": 50000.0, "temperature": 25.0},
-            timestamp="2026-01-15T00:00:00Z",
-        )
-        readings = r.get_readings()
-        assert "voc_resistance" in readings
-        assert readings["voc_resistance"] == 50000.0
+        from app.schemas import SensorReading, configure_field_mapping
+        configure_field_mapping({"gas_resistance": "voc_resistance"})
+        try:
+            r = SensorReading(
+                readings={"gas_resistance": 50000.0, "temperature": 25.0},
+                timestamp="2026-01-15T00:00:00Z",
+            )
+            readings = r.get_readings()
+            assert "voc_resistance" in readings
+            assert readings["voc_resistance"] == 50000.0
+        finally:
+            configure_field_mapping({})
 
     def test_with_all_optional_fields(self, monkeypatch):
         r = self._make(

@@ -5,9 +5,15 @@ import logging
 import torch
 import torch.nn as nn
 import numpy as np
-from app.kan import KAN
 
 logger = logging.getLogger(__name__)
+
+try:
+    from app.kan import KAN
+    _KAN_AVAILABLE = True
+except ImportError:
+    _KAN_AVAILABLE = False
+    logger.info("KAN not available locally (Python >3.9 or missing dependency)")
 
 
 class BayesianLinear(nn.Module):
@@ -137,8 +143,8 @@ class CNNRegressor(nn.Module):
 
     def __init__(
         self,
-        window_size=10,
-        num_features=6,
+        window_size=30,
+        num_features=15,
         num_filters=[64, 128, 256],
         kernel_sizes=[3, 3, 3],
         dropout=0.3,
@@ -211,8 +217,8 @@ class LSTMRegressor(nn.Module):
 
     def __init__(
         self,
-        window_size=10,
-        num_features=6,
+        window_size=60,
+        num_features=15,
         hidden_size=128,
         num_layers=2,
         dropout=0.3,
@@ -277,38 +283,44 @@ class LSTMRegressor(nn.Module):
         return output
 
 
-class KANRegressor(nn.Module):
-    """KAN for IAQ prediction."""
+if _KAN_AVAILABLE:
+    class KANRegressor(nn.Module):
+        """KAN for IAQ prediction."""
 
-    def __init__(self, input_dim, hidden_dims=[32, 16], grid_size=5,
-                 spline_order=3):
-        super(KANRegressor, self).__init__()
-        layers = [input_dim] + hidden_dims + [1]
-        self.kan = KAN(layers, grid_size=grid_size, spline_order=spline_order)
+        def __init__(self, input_dim, hidden_dims=None, grid_size=5,
+                     spline_order=3):
+            super(KANRegressor, self).__init__()
+            if hidden_dims is None:
+                hidden_dims = [32, 16]
+            layers = [input_dim] + hidden_dims + [1]
+            self.kan = KAN(layers, grid_size=grid_size, spline_order=spline_order)
 
-    def forward(self, x):
-        return self.kan(x)
+        def forward(self, x):
+            return self.kan(x)
 
-    def regularization_loss(self):
-        return self.kan.regularization_loss()
+        def regularization_loss(self):
+            return self.kan.regularization_loss()
 
 
 MODEL_REGISTRY = {
     "mlp": MLPRegressor,
     "lstm": LSTMRegressor,
     "cnn": CNNRegressor,
-    "kan": KANRegressor,
     "bnn": BNNRegressor,
 }
+if _KAN_AVAILABLE:
+    MODEL_REGISTRY["kan"] = KANRegressor
 
 
-def build_model(model_type: str, window_size: int = 10, num_features: int = 6) -> nn.Module:
+def build_model(model_type: str, window_size: int = None, num_features: int = None) -> nn.Module:
     """Build a model instance from the registry using YAML config.
 
     Args:
         model_type: One of "mlp", "kan", "lstm", "cnn".
         window_size: Sliding window size (used to compute input_dim for MLP/KAN).
+            Overrides YAML config when provided.
         num_features: Number of features per timestep.
+            Overrides YAML config when provided.
 
     Returns:
         An instantiated nn.Module ready for training.
@@ -316,52 +328,56 @@ def build_model(model_type: str, window_size: int = 10, num_features: int = 6) -
     from app.config import settings
 
     if model_type not in MODEL_REGISTRY:
-        raise ValueError(f"Unknown model type: {model_type}. Must be one of {list(MODEL_REGISTRY)}")
+        from app.exceptions import ConfigurationError
+        raise ConfigurationError(f"Unknown model type: {model_type}. Must be one of {list(MODEL_REGISTRY)}")
 
     ModelCls = MODEL_REGISTRY[model_type]
     cfg = settings.get_model_config(model_type)
 
-    effective_window = cfg.get("window_size", window_size)
-    effective_features = cfg.get("num_features", num_features)
+    # Explicit arguments take precedence over YAML config
+    effective_window = window_size if window_size is not None else cfg.get("window_size", 10)
+    effective_features = num_features if num_features is not None else cfg.get("num_features", 15)
+    input_dim = effective_window * effective_features
 
-    if model_type == "mlp":
-        return ModelCls(
-            input_dim=effective_window * effective_features,
+    # Model-type → kwargs extraction: eliminates if/elif chain
+    _KWARGS_BUILDERS = {
+        "mlp": lambda: dict(
+            input_dim=input_dim,
             hidden_dims=cfg.get("hidden_dims", [64, 32, 16]),
             dropout=cfg.get("dropout", 0.2),
-        )
-    elif model_type == "kan":
-        return ModelCls(
-            input_dim=effective_window * effective_features,
-            hidden_dims=cfg.get("hidden_dims", [32, 16]),
+        ),
+        "kan": lambda: dict(
+            input_dim=input_dim,
+            hidden_dims=cfg.get("hidden_dims", [64, 32]),
             grid_size=cfg.get("grid_size", 5),
             spline_order=cfg.get("spline_order", 3),
-        )
-    elif model_type == "lstm":
-        return ModelCls(
+        ),
+        "lstm": lambda: dict(
             window_size=effective_window,
             num_features=effective_features,
             hidden_size=cfg.get("hidden_size", 128),
             num_layers=cfg.get("num_layers", 2),
             dropout=cfg.get("dropout", 0.3),
             bidirectional=cfg.get("bidirectional", True),
-        )
-    elif model_type == "cnn":
-        return ModelCls(
+        ),
+        "cnn": lambda: dict(
             window_size=effective_window,
             num_features=effective_features,
             num_filters=cfg.get("num_filters", [64, 128, 256]),
             kernel_sizes=cfg.get("kernel_sizes", [3, 3, 3]),
             dropout=cfg.get("dropout", 0.3),
-        )
-    elif model_type == "bnn":
-        return ModelCls(
-            input_dim=effective_window * effective_features,
+        ),
+        "bnn": lambda: dict(
+            input_dim=input_dim,
             hidden_dims=cfg.get("hidden_dims", [64, 32, 16]),
             prior_sigma=cfg.get("prior_sigma", 1.0),
             use_batch_norm=cfg.get("use_batch_norm", False),
-        )
+        ),
+    }
 
+    builder = _KWARGS_BUILDERS.get(model_type)
+    if builder:
+        return ModelCls(**builder())
     return ModelCls(**cfg)
 
 
@@ -409,7 +425,8 @@ class IAQPredictor:
 
             # Get model class and create instance
             if self.model_type not in self._model_registry:
-                raise ValueError(f"Unsupported model type: {self.model_type}")
+                from app.exceptions import ConfigurationError
+                raise ConfigurationError(f"Unsupported model type: {self.model_type}")
 
             ModelClass = self._model_registry[self.model_type]
 
@@ -469,12 +486,8 @@ class IAQPredictor:
             if target_scaler_path.exists():
                 self.target_scaler = joblib.load(target_scaler_path)
 
-            # Load baselines from config (new format or legacy)
+            # Load baselines from config
             self._baselines = self.config.get("baselines", {})
-            if not self._baselines and self.config.get("baseline_gas_resistance"):
-                self._baselines = {
-                    "voc_resistance": self.config["baseline_gas_resistance"]
-                }
 
             # Read window_size from config if saved
             if "window_size" in self.config:

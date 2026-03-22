@@ -91,6 +91,8 @@ class StageMachine:
             cb(state, result)
 
     def _fire_error(self, state: Enum, error: Exception) -> FailureInfo:
+        from app.exceptions import IAQError
+
         logger.error(
             "[%s] FAILED: %s: %s",
             state.value,
@@ -98,10 +100,14 @@ class StageMachine:
             error,
             exc_info=True,
         )
+        error_code = error.code.value if isinstance(error, IAQError) else None
+        suggestion = error.suggestion if isinstance(error, IAQError) else None
         info = FailureInfo(
             failed_state=state,
             error=error,
             stage_results=list(self._results),
+            error_code=error_code,
+            suggestion=suggestion,
         )
         self._failure = info
         for cb in self._error_callbacks:

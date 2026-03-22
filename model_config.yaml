@@ -9,8 +9,8 @@ global:
   # Fallback window_size used if a model does not define its own.
   # Each model section should declare its own window_size — see notes below.
   window_size: 10
-  # Number of input features (4 raw + 6 engineered: voc_ratio, abs_humidity, hour_sin, hour_cos, dow_sin, dow_cos)
-  num_features: 10
+  # Number of input features (4 raw + 11 engineered: abs_humidity, 6 envelope, 4 cyclical)
+  num_features: 15
   # Default device for inference (cpu/cuda)
   device: "cpu"
   # Dropout rate shared across models (can be overridden per model)
@@ -24,7 +24,7 @@ mlp:
   activation: "relu"           # Activation function (relu/tanh/sigmoid)
   use_batch_norm: true         # Whether to use batch normalization
   # Input parameters
-  input_dim: 10                # Number of input features
+  input_dim: 15                # Number of input features
   # MLP flattens the window — temporal order is ignored. A small window keeps
   # input_dim manageable without losing much signal.
   window_size: 10
@@ -34,7 +34,7 @@ kan:
   # Architecture parameters
   hidden_dims: [64, 32]        # Hidden layer dimensions (wider for expressiveness)
   # Input parameters
-  input_dim: 10                # Number of input features
+  input_dim: 15                # Number of input features
   # KAN-specific parameters
   grid_size: 3                 # Grid size for KAN (lower = fewer spline params, less overfitting)
   spline_order: 3              # Spline order for KAN
@@ -53,7 +53,7 @@ lstm:
   # LSTM exploits temporal ordering. At BME680 LP mode (~3 s/sample), 60 readings
   # = ~3 minutes of context — enough to capture VOC stabilisation dynamics.
   window_size: 60
-  num_features: 10             # Number of input features (overrides global.num_features)
+  num_features: 15             # Number of input features (overrides global.num_features)
   # Fully connected layers after LSTM
   fc_layers: [64, 32]          # FC layer dimensions before output
 
@@ -67,7 +67,7 @@ cnn:
   # CNN needs enough temporal width for kernels to detect meaningful patterns.
   # At ~3 s/sample, 30 readings = ~90 seconds of context.
   window_size: 30
-  num_features: 10             # Number of input features (overrides global.num_features)
+  num_features: 15             # Number of input features (overrides global.num_features)
   # Fully connected layers after convolutions
   fc_layers: [128, 64]         # FC layer dimensions before output
 
@@ -79,7 +79,7 @@ bnn:
   kl_weight: 0.001               # KL divergence weight in ELBO loss (lower → data term dominates)
   use_batch_norm: false           # BatchNorm suppresses Bayesian uncertainty — keep off
   # Input parameters
-  input_dim: 10                  # Number of input features (4 raw + 6 engineered)
+  input_dim: 15                  # Number of input features (4 raw + 11 engineered)
   # BNN flattens the window like MLP — small window is fine.
   window_size: 10
   # User-declared prior variables — external signals that shift the predictive
@@ -124,11 +124,7 @@ field_mapping:
 iaq_standard:
   type: bsec                         # Registered IAQStandard name (see app/builtin_profiles.py)
 
-# Label Studio configuration — used by LabelStudioDataSource
-label_studio:
-  url: "http://localhost:8080"   # Label Studio server URL
-  api_key: ""                    # API token (or set LABEL_STUDIO_API_KEY env var)
-  project_id: null               # Integer project ID (required; can be overridden via CLI)
+# Label Studio configuration moved to integrations.yaml (single source of truth)
 
 # Training configuration — read by TrainingPipeline and train_model()
 training:

@@ -13,6 +13,7 @@ from app.config import settings
 from app.models import MODEL_REGISTRY, build_model
 import app.builtin_profiles  # noqa: F401  — registers sensor/standard profiles
 from app.profiles import get_iaq_standard, get_sensor_profile
+from app.exceptions import ConfigurationError, InsufficientDataError, NegativeR2Error
 from training.data_sources import DataSource
 from training.utils import (
     _compute_data_fingerprint,
@@ -79,7 +80,7 @@ class TrainingPipeline:
         resume: bool = False,
     ):
         if model_type not in MODEL_REGISTRY:
-            raise ValueError(
+            raise ConfigurationError(
                 f"Unsupported model type: {model_type}. Must be one of {list(MODEL_REGISTRY)}"
             )
 
@@ -112,8 +113,13 @@ class TrainingPipeline:
         )
         self._output_dir = self._resolve_output_dir(output_dir)
         self._sensor_cfg = settings.get_sensor_config()
-        self._sensor_profile = get_sensor_profile()
-        self._iaq_standard = get_iaq_standard()
+
+        # Pass explicit types from config to avoid hidden config coupling
+        model_cfg_yaml = settings.load_model_config()
+        sensor_type = model_cfg_yaml.get("sensor", {}).get("type")
+        standard_type = model_cfg_yaml.get("iaq_standard", {}).get("type")
+        self._sensor_profile = get_sensor_profile(sensor_type)
+        self._iaq_standard = get_iaq_standard(standard_type)
 
         self._report = PreprocessingReport()
         self._on_epoch_callback: Optional[Callable] = on_epoch
@@ -169,6 +175,11 @@ class TrainingPipeline:
     def failure(self):
         return self._fsm.failure
 
+    @property
+    def model(self):
+        """The trained model (available after TRAINING stage)."""
+        return self._model
+
     @staticmethod
     def _resolve_output_dir(output_dir: str = None) -> Path:
         """Resolve and validate that output_dir is under TRAINED_MODELS_BASE."""
@@ -177,7 +188,7 @@ class TrainingPipeline:
             return None  # will default to base/model_type at save time
         target = Path(output_dir).resolve()
         if not (target == base or base in target.parents):
-            raise ValueError(
+            raise ConfigurationError(
                 f"output_dir must be under '{settings.TRAINED_MODELS_BASE}/'. "
                 f"Got: {output_dir}"
             )
@@ -217,7 +228,7 @@ class TrainingPipeline:
 
         # ── Check: sufficient data ────────────────────────────────────
         if n_raw < self._min_samples:
-            raise ValueError(
+            raise InsufficientDataError(
                 f"Insufficient data: got {n_raw} samples, need at least {self._min_samples}"
             )
         if n_raw < self._min_samples * 2:
@@ -249,6 +260,15 @@ class TrainingPipeline:
                 )
                 self._df = self._df[self._df.index.notna()]
 
+            # ── Check: timezone normalization ─────────────────────────
+            if self._df.index.tz is None:
+                self._df.index = self._df.index.tz_localize("UTC")
+                report.add(IssueSeverity.WARNING, "ingestion", "Naive timestamps localized to UTC")
+            elif str(self._df.index.tz) != "UTC":
+                orig_tz = str(self._df.index.tz)
+                self._df.index = self._df.index.tz_convert("UTC")
+                report.add(IssueSeverity.WARNING, "ingestion", f"Converted timestamps from {orig_tz} to UTC")
+
             # ── Check: chronological order ────────────────────────────
             if not self._df.index.is_monotonic_increasing:
                 report.add(
@@ -269,6 +289,17 @@ class TrainingPipeline:
                 )
                 self._df = self._df[~self._df.index.duplicated(keep="first")]
 
+            # ── Check: sampling interval ──────────────────────────────
+            expected = self._sensor_profile.expected_interval_seconds
+            if expected is not None and len(self._df) > 1:
+                deltas = self._df.index.to_series().diff().dt.total_seconds().dropna()
+                median_interval = float(deltas.median())
+                ratio = median_interval / expected
+                if ratio > 5.0 or ratio < 0.2:
+                    report.add(IssueSeverity.WARNING, "ingestion",
+                        f"Sampling interval mismatch: median {median_interval:.1f}s "
+                        f"vs expected {expected:.1f}s (ratio {ratio:.1f}x)")
+
         # ── Check: NaN values in data columns ─────────────────────────
         nan_rows = int(self._df.isna().any(axis=1).sum())
         if nan_rows > 0:
@@ -279,6 +310,82 @@ class TrainingPipeline:
                 rows_affected=nan_rows,
             )
             self._df = self._df.dropna()
+
+        # ── Unit auto-detection and conversion ─────────────────────────
+        from app.quantities import get_quantity, convert_to_canonical
+
+        feature_quantities = self._sensor_profile.feature_quantities
+        provided_units = getattr(self._source, "provided_units", None) or {}
+
+        for feat, qty_name in feature_quantities.items():
+            if feat not in self._df.columns:
+                continue
+
+            qty = get_quantity(qty_name)
+
+            # 1) Declared unit from source — convert directly
+            declared_unit = provided_units.get(feat)
+            if declared_unit and declared_unit != qty.canonical_unit:
+                self._df[feat] = self._df[feat].apply(
+                    lambda v, u=declared_unit, q=qty_name: convert_to_canonical(v, u, q)
+                )
+                report.add(
+                    IssueSeverity.WARNING,
+                    "ingestion",
+                    f"{feat} converted from {declared_unit} to {qty.canonical_unit}",
+                    rows_affected=len(self._df),
+                )
+                continue
+
+            if declared_unit:
+                continue  # declared as canonical — no auto-detection needed
+
+            # 2) Auto-detect: sample min/max, check if canonical range fits
+            if not qty.valid_range or not qty.alternate_units:
+                continue
+
+            sample = self._df[feat].iloc[:10_000]
+            col_min, col_max = float(sample.min()), float(sample.max())
+            lo, hi = qty.valid_range
+
+            if lo <= col_min and col_max <= hi:
+                continue  # already in canonical range
+
+            # Try each alternate unit
+            matched_unit = None
+            for unit_name in qty.alternate_units:
+                try:
+                    conv_min = convert_to_canonical(col_min, unit_name, qty_name)
+                    conv_max = convert_to_canonical(col_max, unit_name, qty_name)
+                    if lo <= min(conv_min, conv_max) and max(conv_min, conv_max) <= hi:
+                        matched_unit = unit_name
+                        break
+                except Exception:
+                    continue
+
+            if matched_unit:
+                self._df[feat] = self._df[feat].apply(
+                    lambda v, u=matched_unit, q=qty_name: convert_to_canonical(v, u, q)
+                )
+                report.add(
+                    IssueSeverity.WARNING,
+                    "ingestion",
+                    f"{feat} auto-detected as {matched_unit}, "
+                    f"converted to {qty.canonical_unit}",
+                    rows_affected=len(self._df),
+                )
+                logger.info(
+                    "Auto-converted %s from %s to %s",
+                    feat, matched_unit, qty.canonical_unit,
+                )
+            else:
+                report.add(
+                    IssueSeverity.ERROR,
+                    "ingestion",
+                    f"Possible unit mismatch on {feat}: values "
+                    f"[{col_min:.1f}, {col_max:.1f}] outside valid range "
+                    f"[{lo}, {hi}] and no alternate unit matches",
+                )
 
         # ── Check: sensor range outliers ────────────────────────────────
         valid_ranges = self._sensor_profile.valid_ranges
@@ -310,7 +417,7 @@ class TrainingPipeline:
 
         n_clean = len(self._df)
         if n_clean < self._min_samples:
-            raise ValueError(
+            raise InsufficientDataError(
                 f"Insufficient data after cleaning: {n_clean} samples "
                 f"(started with {n_raw}, need at least {self._min_samples})"
             )
@@ -417,6 +524,33 @@ class TrainingPipeline:
                 f"(largest gap: {gap_info.get('largest_gap_seconds', 0):.0f}s)",
             )
 
+        # Trim sensor warm-up from the start of each segment
+        warmup_secs = self._sensor_profile.warmup_seconds
+        if warmup_secs > 0 and len(segments) > 0:
+            interval = self._sensor_profile.expected_interval_seconds or 3.0
+            warmup_samples = int(warmup_secs / interval)
+            trimmed = []
+            trimmed_total = 0
+            for s, e in segments:
+                if (e - s) > warmup_samples:
+                    trimmed.append((s + warmup_samples, e))
+                    trimmed_total += warmup_samples
+                # else: entire segment is within warm-up — skip it
+            if trimmed_total > 0:
+                logger.info(
+                    "Trimmed %d warm-up samples (%.0fs) from %d segment starts",
+                    trimmed_total, warmup_secs, len(segments),
+                )
+                self._report.add(
+                    IssueSeverity.INFO,
+                    "windowing",
+                    f"Trimmed {trimmed_total} warm-up samples "
+                    f"({warmup_secs:.0f}s) from segment starts",
+                )
+            # Only apply trimming if at least one segment survived
+            if trimmed:
+                segments = trimmed
+
         # Use all contiguous segments that are long enough for windowing
         valid_segments = [
             (s, e) for s, e in segments if (e - s) >= self._window_size
@@ -424,7 +558,7 @@ class TrainingPipeline:
 
         if not valid_segments:
             longest = max(segments, key=lambda s: s[1] - s[0])
-            raise ValueError(
+            raise InsufficientDataError(
                 f"No contiguous segment is long enough for "
                 f"window_size={self._window_size} "
                 f"(longest has {longest[1] - longest[0]} samples)"
@@ -651,6 +785,13 @@ class TrainingPipeline:
             self._metrics["r2"],
         )
 
+        r2 = self._metrics["r2"]
+        if r2 < -1.0:
+            raise NegativeR2Error(
+                f"Model evaluation produced R²={r2:.4f} (worse than mean predictor)",
+                suggestion="Check data quality, reduce learning rate, or increase epochs",
+            )
+
         # ── TensorBoard: log hyperparams + final metrics ─────────────
         if self._tb_log_dir:
             from torch.utils.tensorboard import SummaryWriter
@@ -714,6 +855,7 @@ class TrainingPipeline:
             metrics=self._metrics,
             training_history=self._training_history,
             data_manifest=manifest,
+            feature_names=self._sensor_profile.all_feature_names,
         )
 
         # Compute schema fingerprint for semver
@@ -828,7 +970,7 @@ class TrainingPipeline:
         )
 
     def collect_run_params(self) -> Dict[str, Any]:
-        """Flat dict of all run parameters — ready for mlflow.log_params().
+        """Flat dict of all run parameters — ready for experiment tracking.
 
         Can be called at any point after __init__. Values that depend on
         pipeline execution (data_fingerprint, git_commit, num_features) are
@@ -850,7 +992,15 @@ class TrainingPipeline:
             "iaq_standard": self._iaq_standard.name,
             "num_features": self._sensor_profile.total_features,
             "data_source": self._source.name,
+            "feature_names": ",".join(self._sensor_profile.all_feature_names),
         }
+        # Model-specific hyperparameters
+        model_cfg = settings.get_model_config(self._model_type)
+        if self._model_type == "bnn":
+            params["bnn_prior_sigma"] = model_cfg.get("prior_sigma")
+            params["bnn_kl_weight"] = model_cfg.get("kl_weight")
+        elif self._model_type == "kan":
+            params["kan_reg_weight"] = model_cfg.get("reg_weight")
         if identity.get("sensor_id"):
             params["sensor_id"] = identity["sensor_id"]
         if identity.get("firmware_version"):

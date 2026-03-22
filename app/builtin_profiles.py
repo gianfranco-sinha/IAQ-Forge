@@ -54,12 +54,62 @@ class BME680Profile(SensorProfile):
         return 3.0  # BME680 LP mode
 
     @property
-    def engineered_feature_names(self) -> List[str]:
-        return ["voc_ratio", "abs_humidity", "hour_sin", "hour_cos", "dow_sin", "dow_cos"]
+    def warmup_seconds(self) -> float:
+        return 600.0  # 10 minutes — MOX heater plate stabilisation
 
-    def compute_baselines(self, raw: np.ndarray) -> Dict[str, float]:
+    @property
+    def heater_temperature_c(self) -> Optional[float]:
+        return 320.0  # BSEC default heater temperature (LP mode)
+
+    @property
+    def engineered_feature_names(self) -> List[str]:
+        return [
+            "abs_humidity",
+            "baseline_24h", "gas_ratio_24h", "log_ratio_24h",
+            "baseline_7d", "gas_ratio_7d", "log_ratio_7d",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+        ]
+
+    def _compute_envelope(
+        self,
+        voc_series: pd.Series,
+        use_time_rolling: bool,
+    ) -> Tuple[pd.Series, pd.Series]:
+        """Compute 24h and 7d rolling-max EWM baselines from VOC resistance."""
+        if use_time_rolling:
+            roll_24h = voc_series.rolling("24h", min_periods=1).max()
+            roll_7d = voc_series.rolling("7D", min_periods=1).max()
+        else:
+            interval = self.expected_interval_seconds or 3.0
+            win_24h = int(24 * 3600 / interval)
+            win_7d = int(7 * 24 * 3600 / interval)
+            roll_24h = voc_series.rolling(win_24h, min_periods=1).max()
+            roll_7d = voc_series.rolling(win_7d, min_periods=1).max()
+
+        baseline_24h = roll_24h.ewm(alpha=0.001).mean()
+        baseline_7d = roll_7d.ewm(alpha=0.001).mean()
+        return baseline_24h, baseline_7d
+
+    def compute_baselines(
+        self, raw: np.ndarray, timestamps: Optional[np.ndarray] = None,
+    ) -> Dict[str, float]:
         voc_idx = self.raw_features.index("voc_resistance")
-        return {"voc_resistance": float(np.median(raw[:, voc_idx]))}
+        voc_col = raw[:, voc_idx]
+
+        if timestamps is not None:
+            voc_series = pd.Series(voc_col, index=pd.DatetimeIndex(timestamps))
+            use_time = True
+        else:
+            voc_series = pd.Series(voc_col)
+            use_time = False
+
+        baseline_24h, baseline_7d = self._compute_envelope(voc_series, use_time)
+
+        return {
+            "voc_resistance": float(np.median(voc_col)),
+            "baseline_24h": float(baseline_24h.iloc[-1]),
+            "baseline_7d": float(baseline_7d.iloc[-1]),
+        }
 
     def engineer_features(
         self,
@@ -73,13 +123,25 @@ class BME680Profile(SensorProfile):
         temp_idx = self.raw_features.index("temperature")
         hum_idx = self.raw_features.index("rel_humidity")
 
-        baseline_voc = (
-            baselines.get("voc_resistance", float(np.median(raw[:, voc_idx])))
-            if baselines
-            else float(np.median(raw[:, voc_idx]))
-        )
-        voc_ratio = raw[:, voc_idx] / baseline_voc
         abs_humidity = calculate_absolute_humidity(raw[:, temp_idx], raw[:, hum_idx])
+
+        # Envelope baselines (per-sample rolling)
+        voc_col = raw[:, voc_idx]
+        if timestamps is not None:
+            voc_series = pd.Series(voc_col, index=pd.DatetimeIndex(timestamps))
+            use_time = True
+        else:
+            voc_series = pd.Series(voc_col)
+            use_time = False
+
+        baseline_24h, baseline_7d = self._compute_envelope(voc_series, use_time)
+        baseline_24h_vals = baseline_24h.values
+        baseline_7d_vals = baseline_7d.values
+
+        gas_ratio_24h = np.clip(voc_col / baseline_24h_vals, 1e-6, None)
+        log_ratio_24h = np.log(gas_ratio_24h)
+        gas_ratio_7d = np.clip(voc_col / baseline_7d_vals, 1e-6, None)
+        log_ratio_7d = np.log(gas_ratio_7d)
 
         # Temporal cyclical features
         if timestamps is not None:
@@ -95,8 +157,13 @@ class BME680Profile(SensorProfile):
 
         return np.column_stack([
             raw,
-            voc_ratio.reshape(-1, 1),
             abs_humidity.reshape(-1, 1),
+            baseline_24h_vals.reshape(-1, 1),
+            gas_ratio_24h.reshape(-1, 1),
+            log_ratio_24h.reshape(-1, 1),
+            baseline_7d_vals.reshape(-1, 1),
+            gas_ratio_7d.reshape(-1, 1),
+            log_ratio_7d.reshape(-1, 1),
             hour_sin.reshape(-1, 1),
             hour_cos.reshape(-1, 1),
             dow_sin.reshape(-1, 1),
@@ -114,10 +181,21 @@ class BME680Profile(SensorProfile):
         raw_vals = [reading[f] for f in self.raw_features]
 
         voc_r = reading["voc_resistance"]
-        baseline_voc = (
-            baselines.get("voc_resistance", voc_r) if baselines else voc_r
+
+        # Fallback chain: baseline_24h → voc_resistance → raw voc_r
+        bl_24h = (
+            baselines.get("baseline_24h", baselines.get("voc_resistance", voc_r))
+            if baselines else voc_r
         )
-        voc_ratio = voc_r / baseline_voc
+        bl_7d = (
+            baselines.get("baseline_7d", baselines.get("voc_resistance", voc_r))
+            if baselines else voc_r
+        )
+
+        gas_ratio_24h = max(voc_r / bl_24h, 1e-6)
+        log_ratio_24h = np.log(gas_ratio_24h)
+        gas_ratio_7d = max(voc_r / bl_7d, 1e-6)
+        log_ratio_7d = np.log(gas_ratio_7d)
 
         abs_hum = calculate_absolute_humidity(
             np.array([reading["temperature"]]),
@@ -130,9 +208,39 @@ class BME680Profile(SensorProfile):
         hour_sin, hour_cos = self._cyclical_encode(np.array([hour]), 24.0)
         dow_sin, dow_cos = self._cyclical_encode(np.array([dow]), 7.0)
 
-        return np.array(raw_vals + [voc_ratio, abs_hum,
-                                    hour_sin[0], hour_cos[0],
-                                    dow_sin[0], dow_cos[0]])
+        return np.array(raw_vals + [
+            abs_hum,
+            bl_24h, gas_ratio_24h, log_ratio_24h,
+            bl_7d, gas_ratio_7d, log_ratio_7d,
+            hour_sin[0], hour_cos[0],
+            dow_sin[0], dow_cos[0],
+        ])
+
+
+class BME680NoPressureProfile(BME680Profile):
+    """BME680 with pressure removed — used by ablation experiments."""
+
+    @property
+    def name(self) -> str:
+        return "bme680_no_pressure"
+
+    @property
+    def raw_features(self) -> List[str]:
+        return ["temperature", "rel_humidity", "voc_resistance"]
+
+    @property
+    def feature_quantities(self) -> Dict[str, str]:
+        return {
+            "temperature": "temperature",
+            "rel_humidity": "relative_humidity",
+            "voc_resistance": "voc_resistance",
+        }
+
+    @property
+    def valid_ranges(self) -> Dict[str, Tuple[float, float]]:
+        ranges = super().valid_ranges
+        ranges.pop("pressure", None)
+        return ranges
 
 
 class SPS30Profile(SensorProfile):

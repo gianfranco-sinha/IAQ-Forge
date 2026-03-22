@@ -1,5 +1,8 @@
 """Tests for app/profiles.py — ABC concrete methods, cyclical encoding, registry."""
+from datetime import datetime
+
 import numpy as np
+import pandas as pd
 import pytest
 
 from app.profiles import (
@@ -130,3 +133,98 @@ class TestRegistry:
         )
         standard = get_iaq_standard()
         assert standard.name == "bsec"
+
+
+# ── BME680 Envelope Detection ────────────────────────────────────────────
+
+
+class TestBME680EnvelopeFeatures:
+    """Tests for baseline envelope detection features on BME680Profile."""
+
+    @pytest.fixture
+    def sample_raw(self):
+        """100 samples of plausible BME680 readings."""
+        rng = np.random.RandomState(42)
+        n = 100
+        return np.column_stack([
+            rng.uniform(20, 30, n),       # temperature
+            rng.uniform(30, 70, n),       # rel_humidity
+            rng.uniform(990, 1020, n),    # pressure
+            rng.uniform(50000, 500000, n),  # voc_resistance
+        ])
+
+    @pytest.fixture
+    def sample_timestamps(self):
+        return pd.date_range("2026-01-01", periods=100, freq="3s").values
+
+    def test_engineered_feature_names(self, bme680_profile):
+        expected = [
+            "abs_humidity",
+            "baseline_24h", "gas_ratio_24h", "log_ratio_24h",
+            "baseline_7d", "gas_ratio_7d", "log_ratio_7d",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+        ]
+        assert bme680_profile.engineered_feature_names == expected
+
+    def test_total_features_is_15(self, bme680_profile):
+        assert bme680_profile.total_features == 15
+
+    def test_engineer_features_shape(self, bme680_profile, sample_raw, sample_timestamps):
+        result = bme680_profile.engineer_features(sample_raw, timestamps=sample_timestamps)
+        assert result.shape == (100, 15)
+
+    def test_engineer_features_shape_no_timestamps(self, bme680_profile, sample_raw):
+        result = bme680_profile.engineer_features(sample_raw)
+        assert result.shape == (100, 15)
+
+    def test_engineer_features_single_shape(self, bme680_profile):
+        reading = {
+            "temperature": 25.0, "rel_humidity": 50.0,
+            "pressure": 1013.0, "voc_resistance": 200000.0,
+        }
+        baselines = {"voc_resistance": 300000.0, "baseline_24h": 350000.0, "baseline_7d": 320000.0}
+        result = bme680_profile.engineer_features_single(
+            reading, baselines, timestamp=datetime(2026, 3, 15, 14, 30),
+        )
+        assert result.shape == (15,)
+
+    def test_envelope_baselines_computed(self, bme680_profile, sample_raw, sample_timestamps):
+        baselines = bme680_profile.compute_baselines(sample_raw, timestamps=sample_timestamps)
+        assert "baseline_24h" in baselines
+        assert "baseline_7d" in baselines
+        assert "voc_resistance" in baselines
+        assert baselines["baseline_24h"] > 0
+        assert baselines["baseline_7d"] > 0
+
+    def test_envelope_baselines_no_timestamps(self, bme680_profile, sample_raw):
+        baselines = bme680_profile.compute_baselines(sample_raw)
+        assert "baseline_24h" in baselines
+        assert "baseline_7d" in baselines
+
+    def test_gas_ratio_bounded(self, bme680_profile, sample_raw, sample_timestamps):
+        result = bme680_profile.engineer_features(sample_raw, timestamps=sample_timestamps)
+        # gas_ratio_24h is column index 6 (4 raw + abs_humidity + baseline_24h + gas_ratio_24h)
+        gas_ratio_24h = result[:, 6]
+        log_ratio_24h = result[:, 7]
+        assert np.all(gas_ratio_24h > 0)
+        # EWM smoothing means ratio can transiently exceed 1 during spikes,
+        # but should be roughly in (0, ~2] for realistic data
+        assert np.all(gas_ratio_24h < 10.0)
+        # log_ratio is finite (no NaN/Inf from clipping)
+        assert np.all(np.isfinite(log_ratio_24h))
+
+    def test_backward_compat_old_baselines(self, bme680_profile):
+        """Old model artifacts with only voc_resistance key still work."""
+        reading = {
+            "temperature": 25.0, "rel_humidity": 50.0,
+            "pressure": 1013.0, "voc_resistance": 200000.0,
+        }
+        old_baselines = {"voc_resistance": 300000.0}  # no baseline_24h/7d
+        result = bme680_profile.engineer_features_single(reading, old_baselines)
+        assert result.shape == (15,)
+        # Both ratios should use voc_resistance as fallback
+        gas_ratio_24h = result[6]
+        gas_ratio_7d = result[9]
+        expected_ratio = 200000.0 / 300000.0
+        assert abs(gas_ratio_24h - expected_ratio) < 1e-6
+        assert abs(gas_ratio_7d - expected_ratio) < 1e-6

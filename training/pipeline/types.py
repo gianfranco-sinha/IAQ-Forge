@@ -124,6 +124,8 @@ class FailureInfo:
     failed_state: PipelineState
     error: Exception
     stage_results: List[StageResult]
+    error_code: Optional[str] = None
+    suggestion: Optional[str] = None
 
 
 @dataclass
@@ -139,6 +141,15 @@ class PipelineResult:
     merkle_root_hash: str = ""
     artifact_paths: List[Path] = field(default_factory=list)
     interrupted: bool = False
+
+    @property
+    def warnings(self) -> List[str]:
+        """Surface preprocessing warnings as a flat string list."""
+        return [
+            f"[{issue.stage}] {issue.message}"
+            + (f" ({issue.rows_affected} rows)" if issue.rows_affected else "")
+            for issue in self.preprocessing_report.warnings
+        ]
 
 
 class PipelineError(Exception):

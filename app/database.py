@@ -45,10 +45,21 @@ class InfluxDBManager:
         self.version = self.db_config.get("version", "1.x")
 
         if self.db_config.get("enabled", False):
-            self._connect()
+            try:
+                self._connect()
+            except Exception as e:
+                self.connected = False
+                self.last_error = str(e)
+                logger.warning("InfluxDB unavailable at startup: %s", e)
 
     def _connect(self) -> bool:
-        """Attempt to connect to InfluxDB based on version."""
+        """Attempt to connect to InfluxDB based on version.
+
+        Raises:
+            InfluxUnreachableError: If connection fails.
+        """
+        from app.exceptions import InfluxUnreachableError
+
         try:
             version = self.db_config.get("version", "1.x")
 
@@ -63,18 +74,25 @@ class InfluxDBManager:
                 )
             return self.connected
 
+        except InfluxUnreachableError:
+            raise
         except Exception as e:
             self.connected = False
             self.last_error = str(e)
-            logger.error(f"Failed to connect to InfluxDB: {e}")
-            return False
+            raise InfluxUnreachableError(
+                f"Failed to connect to InfluxDB: {e}",
+                suggestion="Check host/port/network",
+            ) from e
 
     def _connect_influxdb_v1(self) -> bool:
         """Connect to InfluxDB 1.x using InfluxDBClient."""
+        from app.exceptions import InfluxUnreachableError
+
         if not HAS_INFLUXDB_V1:
-            logger.warning("InfluxDB 1.x client not available")
-            self.last_error = "InfluxDB 1.x client not available"
-            return False
+            raise InfluxUnreachableError(
+                "InfluxDB 1.x client not available",
+                suggestion="Install influxdb package",
+            )
 
         self.client = InfluxDBClient(
             host=self.db_config.get("host"),
@@ -107,6 +125,8 @@ class InfluxDBManager:
 
     def _connect_influxdb_v2(self) -> bool:
         """Connect to InfluxDB 2.x using InfluxDBClient."""
+        from app.exceptions import InfluxUnreachableError
+
         if not HAS_INFLUXDB_V3:
             logger.warning(
                 "InfluxDB 2.x client not available, falling back to 1.x client"
@@ -117,13 +137,15 @@ class InfluxDBManager:
         org = self.db_config.get("org", "")
 
         if not token:
-            logger.error("Token is required for InfluxDB 2.x")
-            self.last_error = "Token is required for InfluxDB 2.x"
-            return False
+            raise InfluxUnreachableError(
+                "Token is required for InfluxDB 2.x",
+                suggestion="Set token in database_config.yaml",
+            )
         if not org:
-            logger.error("Organization is required for InfluxDB 2.x")
-            self.last_error = "Organization is required for InfluxDB 2.x"
-            return False
+            raise InfluxUnreachableError(
+                "Organization is required for InfluxDB 2.x",
+                suggestion="Set org in database_config.yaml",
+            )
 
         self.client = InfluxDBClientV3(
             token=token,
@@ -153,7 +175,11 @@ class InfluxDBManager:
 
         if not self.connected:
             # Try to reconnect
-            self._connect()
+            try:
+                self._connect()
+            except Exception as e:
+                self.connected = False
+                self.last_error = str(e)
 
         if self.connected:
             try:
@@ -242,8 +268,11 @@ class InfluxDBManager:
 
         if not self.connected:
             logger.warning("InfluxDB not connected - attempting reconnection")
-            self._connect()
-            if not self.connected:
+            try:
+                self._connect()
+            except Exception as e:
+                self.connected = False
+                self.last_error = str(e)
                 logger.error("InfluxDB reconnection failed - cannot write prediction")
                 return False
 
@@ -311,7 +340,11 @@ class InfluxDBManager:
         if not self.db_config.get("enabled", False):
             return False
         if not self.connected:
-            self._connect()
+            try:
+                self._connect()
+            except Exception as e:
+                self.connected = False
+                self.last_error = str(e)
         return self.connected
 
     def _query_v1(self, query: str) -> List[Dict]:

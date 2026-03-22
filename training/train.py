@@ -19,6 +19,7 @@ def train_single_model(
     experiment_name: str = "iaq4j",
     resume: bool = False,
     tracker: Optional[ExperimentTracker] = None,
+    early_stopping_patience: Optional[int] = None,
 ) -> PipelineResult:
     """Train a single model using the TrainingPipeline.
 
@@ -54,7 +55,7 @@ def train_single_model(
         def on_epoch(epoch: int, train_loss: float, val_loss: float, lr: float) -> None:
             tracker.log_epoch(epoch, train_loss, val_loss, lr)
 
-        pipeline = TrainingPipeline(
+        pipeline_kwargs = dict(
             source=data_source,
             model_type=model_type,
             epochs=epochs,
@@ -62,6 +63,9 @@ def train_single_model(
             on_epoch=on_epoch,
             resume=resume,
         )
+        if early_stopping_patience is not None:
+            pipeline_kwargs["early_stopping_patience"] = early_stopping_patience
+        pipeline = TrainingPipeline(**pipeline_kwargs)
 
         result = pipeline.orchestrate()
 

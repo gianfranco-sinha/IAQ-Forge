@@ -37,6 +37,7 @@ class ModelTrainer:
         num_records: int = None,
         data_source: DataSource = None,
         resume: bool = False,
+        early_stopping_patience: int = None,
     ):
         """Train a specific model type."""
         if model_type not in ["mlp", "kan", "lstm", "cnn", "bnn"]:
@@ -62,6 +63,7 @@ class ModelTrainer:
             data_source=data_source,
             resume=resume,
             tracker=self._tracker,
+            early_stopping_patience=early_stopping_patience,
         )
 
         if result and result.interrupted:
@@ -94,7 +96,7 @@ class ModelTrainer:
 
     def train_all_models(
         self, epochs: int = 200, window_size: int = None, num_records: int = None,
-        resume: bool = False,
+        resume: bool = False, early_stopping_patience: int = None,
     ):
         """Train all models in registry."""
         models_to_train = ["mlp", "kan", "lstm", "cnn", "bnn"]
@@ -107,6 +109,7 @@ class ModelTrainer:
                     window_size=window_size,
                     num_records=num_records,
                     resume=resume,
+                    early_stopping_patience=early_stopping_patience,
                 )
             except RuntimeError as e:
                 print(f"❌ {e}")

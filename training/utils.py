@@ -174,6 +174,7 @@ def train_model(
     checkpoint_path: Optional[str] = None,
     checkpoint_freq: int = 20,
     model_dir: Optional[str] = None,
+    early_stopping_patience: int = 0,
 ):
     """Train a model with DataLoader, LR scheduler, and validation tracking.
 
@@ -186,6 +187,8 @@ def train_model(
         checkpoint_path: If set and file exists, resume training from this checkpoint.
         checkpoint_freq: Save checkpoint every N epochs (0 to disable).
         model_dir: Directory to save checkpoint.pt into. Required for checkpointing.
+        early_stopping_patience: Stop after N epochs with no val loss improvement.
+            0 (default) disables early stopping.
 
     Returns:
         Dict with best_val_loss, train_losses, val_losses, and interrupted flag.
@@ -244,6 +247,10 @@ def train_model(
             val_losses = ckpt["val_losses"]
             best_val_loss = ckpt["best_val_loss"]
             print(f"  Resuming from epoch {start_epoch} (best_val_loss={best_val_loss:.6f})")
+
+    # ── Early stopping state ─────────────────────────────────────────
+    es_counter = 0
+    best_model_state = None
 
     # ── Resolve checkpoint save path ──────────────────────────────────
     ckpt_save_path = None
@@ -310,6 +317,13 @@ def train_model(
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
+                es_counter = 0
+                if early_stopping_patience > 0:
+                    best_model_state = {
+                        k: v.cpu().clone() for k, v in model.state_dict().items()
+                    }
+            elif early_stopping_patience > 0:
+                es_counter += 1
 
             if (epoch + 1) % 20 == 0:
                 print(f"  Epoch [{epoch + 1}/{epochs}], Train: {train_loss:.6f}, Val: {val_loss:.6f}")
@@ -343,6 +357,15 @@ def train_model(
                     train_losses, val_losses, best_val_loss,
                 )
 
+            # ── Early stopping ────────────────────────────────────────
+            if early_stopping_patience > 0 and es_counter >= early_stopping_patience:
+                logger.info(
+                    "Early stopping at epoch %d (patience=%d, best_val_loss=%.6f)",
+                    epoch + 1, early_stopping_patience, best_val_loss,
+                )
+                print(f"  Early stopping at epoch {epoch + 1} (no improvement for {early_stopping_patience} epochs)")
+                break
+
             # ── Graceful interrupt ────────────────────────────────────
             if _interrupted:
                 print(f"\n  Interrupted at epoch {epoch + 1} — saving checkpoint")
@@ -356,6 +379,12 @@ def train_model(
     finally:
         signal.signal(signal.SIGINT, old_sigint)
         signal.signal(signal.SIGTERM, old_sigterm)
+
+    # ── Restore best weights ─────────────────────────────────────────
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        model = model.to(device)
+        logger.info("Restored best model weights (val_loss=%.6f)", best_val_loss)
 
     if writer is not None:
         writer.flush()

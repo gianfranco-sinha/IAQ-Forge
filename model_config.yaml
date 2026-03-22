@@ -143,3 +143,5 @@ training:
   tensorboard_histogram_freq: 50     # log weight/gradient histograms every N epochs (0 = off)
   # Checkpointing
   checkpoint_freq: 20                # save checkpoint every N epochs (0 = off)
+  # Early stopping
+  early_stopping_patience: 0         # stop after N epochs without val loss improvement (0 = off)

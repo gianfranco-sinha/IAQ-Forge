@@ -75,6 +75,7 @@ class TrainingPipeline:
         learning_rate: float = None,
         lr_scheduler_patience: int = None,
         lr_scheduler_factor: float = None,
+        early_stopping_patience: int = None,
         output_dir: str = None,
         on_epoch: Optional[Callable] = None,
         resume: bool = False,
@@ -110,6 +111,11 @@ class TrainingPipeline:
             lr_scheduler_factor
             if lr_scheduler_factor is not None
             else tcfg["lr_scheduler_factor"]
+        )
+        self._early_stopping_patience = (
+            early_stopping_patience
+            if early_stopping_patience is not None
+            else tcfg.get("early_stopping_patience", 0)
         )
         self._output_dir = self._resolve_output_dir(output_dir)
         self._sensor_cfg = settings.get_sensor_config()
@@ -290,15 +296,30 @@ class TrainingPipeline:
                 self._df = self._df[~self._df.index.duplicated(keep="first")]
 
             # ── Check: sampling interval ──────────────────────────────
+            interval_stats = None
             expected = self._sensor_profile.expected_interval_seconds
             if expected is not None and len(self._df) > 1:
                 deltas = self._df.index.to_series().diff().dt.total_seconds().dropna()
                 median_interval = float(deltas.median())
                 ratio = median_interval / expected
+                interval_stats = {
+                    "median_seconds": round(median_interval, 2),
+                    "p5_seconds": round(float(deltas.quantile(0.05)), 2),
+                    "p95_seconds": round(float(deltas.quantile(0.95)), 2),
+                    "expected_seconds": expected,
+                }
                 if ratio > 5.0 or ratio < 0.2:
                     report.add(IssueSeverity.WARNING, "ingestion",
                         f"Sampling interval mismatch: median {median_interval:.1f}s "
                         f"vs expected {expected:.1f}s (ratio {ratio:.1f}x)")
+                # Detect variable-rate sampling (bimodal intervals)
+                if median_interval > 0 and len(deltas) > 1:
+                    cv = float(deltas.std() / median_interval)
+                    interval_stats["cv"] = round(cv, 3)
+                    if cv > 1.0:
+                        report.add(IssueSeverity.WARNING, "ingestion",
+                            f"High sampling interval variability (CV={cv:.2f}) — "
+                            f"possible multi-rate or irregular sampling")
 
         # ── Check: NaN values in data columns ─────────────────────────
         nan_rows = int(self._df.isna().any(axis=1).sum())
@@ -433,6 +454,8 @@ class TrainingPipeline:
         if has_timestamps and n_clean > 0:
             extra["date_range_start"] = str(self._df.index.min())
             extra["date_range_end"] = str(self._df.index.max())
+            if interval_stats:
+                extra["interval_stats"] = interval_stats
 
         return StageResult(
             state=PipelineState.INGESTION,
@@ -742,6 +765,7 @@ class TrainingPipeline:
             checkpoint_path=checkpoint_path,
             checkpoint_freq=checkpoint_freq,
             model_dir=str(effective_model_dir),
+            early_stopping_patience=self._early_stopping_patience,
         )
 
         self._training_history = history
@@ -806,6 +830,7 @@ class TrainingPipeline:
                     "window_size": self._window_size,
                     "lr_scheduler_patience": self._lr_scheduler_patience,
                     "lr_scheduler_factor": self._lr_scheduler_factor,
+                    "early_stopping_patience": self._early_stopping_patience,
                 },
                 metric_dict={
                     "hparam/mae": self._metrics["mae"],
@@ -988,6 +1013,7 @@ class TrainingPipeline:
             "min_samples": self._min_samples,
             "lr_scheduler_patience": self._lr_scheduler_patience,
             "lr_scheduler_factor": self._lr_scheduler_factor,
+            "early_stopping_patience": self._early_stopping_patience,
             "sensor_type": self._sensor_profile.name,
             "iaq_standard": self._iaq_standard.name,
             "num_features": self._sensor_profile.total_features,

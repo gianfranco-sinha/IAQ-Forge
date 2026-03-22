@@ -105,6 +105,13 @@ def create_parser():
         action="store_true",
         help="Enable caching of InfluxDB data for faster subsequent runs",
     )
+    train_parser.add_argument(
+        "--early-stopping",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Stop after N epochs with no val loss improvement (overrides config)",
+    )
 
     # List models command
     list_parser = subparsers.add_parser(
@@ -461,6 +468,7 @@ def main():
                     num_records=args.data_records,
                     data_source=data_source,
                     resume=args.resume,
+                    early_stopping_patience=args.early_stopping,
                 )
                 print(f"✅ {model_type.upper()} training completed successfully")
             except Exception as e:

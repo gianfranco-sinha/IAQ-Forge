@@ -69,8 +69,6 @@ black app/ training/
 
 **Test structure**: `tests/unit/` (15+ files) + `tests/integration/test_pipeline.py`. Config: `pytest.ini` (testpaths=tests, pythonpath=.). Key fixtures in `tests/conftest.py`: `bme680_profile`, `bsec_standard`, `sample_raw_data`, `sample_reading`, `sample_timestamps`, `patched_models_base`, `model_artifact_dir`, `fast_pipeline_kwargs`.
 
-**New test modules**: drift correction, LLM readiness, property-based (Hypothesis), sensor drift reports, IAQ standards.
-
 ## Architecture
 
 **Two training paths** — this is the most important thing to understand:
@@ -129,7 +127,9 @@ Both paths save artifacts to `trained_models/{model_type}/` (model.pt, config.js
 - All models inherit `torch.nn.Module`
 - Profile registration: `import app.builtin_profiles  # noqa: F401` — required wherever profiles are needed (main.py, pipeline.py)
 - Backward compat: `SensorReading` accepts both old 4-field and new `readings` format
-- See `AGENTS.md` for DDD guidelines, bounded context responsibilities, code style details, and agent boundary rules (what requires confirmation vs. safe to do autonomously)
+- **Python 3.9 compat**: use `Optional[X]` not `X | None`, `Union[A, B]` not `A | B`, `Dict`/`List`/`Tuple` from `typing` not builtins
+- **DDD boundaries**: keep domain logic out of FastAPI routes; access entities via registries, never instantiate ad-hoc; never leak infrastructure concerns (InfluxDB, file paths) into domain objects
+- See `AGENTS.md` for full DDD guidelines, bounded context responsibilities, code style details, and agent boundary rules
 
 ## Deployment
 
@@ -154,13 +154,4 @@ ssh pi@<production-host> 'journalctl -u iaq4j -f'
 
 ## Roadmap
 
-See `docs/roadmap.md` for full details and canonical implementation order. Next up:
-- **P1: Domain Exception Hierarchy** — unify 3 error patterns into `IAQError` hierarchy
-- **P1: Ingestion Consistency Validation** — datetime/units normalization
-- **P1: Service Extraction** — extract PredictionService + SensorRegistrationService from main.py
-- **P1: LLM Readiness Phase 1** — config cache, InfluxDB reads, typed exceptions, StructuredResponse
-- **P1: Multi-source Pipeline** — settles pipeline.py ingestion before MLflow
-- **P2: MLflow Integration** — basic integration live in `training/train.py`, remaining work adds callbacks
-- **P2: LLM-Driven Pipeline Design** — capstone
-
-Completed: physical quantity registry, semantic field mapping, artifact semver, sensor registration API, LabelStudio data source, temporal feature engineering, security hardening, pytest Tier 1+2+3 (540 tests), property-based testing, training checkpoint & resume, DAG Merkle tree, IAQ standards abstraction (BSEC, EPA AQI), sensor drift analysis & correction, KAN sidecar dockerization, integrations package, config decomposition (R2).
+See `docs/roadmap.md` for full details, canonical implementation order, and completed items.

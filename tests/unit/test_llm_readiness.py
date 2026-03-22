@@ -163,6 +163,7 @@ class TestDomainErrorCode:
             "NO_DATA", "INSUFFICIENT_DATA", "SCHEMA_MISMATCH",
             "INFLUX_UNREACHABLE", "TRAINING_DIVERGED", "NEGATIVE_R2",
             "STALE_CONFIG", "CHECKPOINT_NOT_FOUND", "CONFIGURATION",
+            "SERVICE_UNREACHABLE",
         }
         actual = {e.value for e in DomainErrorCode}
         assert actual == expected

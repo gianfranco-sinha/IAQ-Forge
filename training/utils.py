@@ -36,10 +36,32 @@ def seed_everything(seed: int) -> None:
 
 
 def get_device():
-    """Detect best available compute device."""
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-    elif torch.cuda.is_available():
+    """Detect best available compute device.
+
+    Respects ``global.device`` in model_config.yaml and the ``IAQ4J_DEVICE``
+    env var (either skips auto-detection).  MPS probe is guarded because
+    ``torch.backends.mps.is_available()`` can abort() on systems with
+    exhausted IOSurface connections (e.g. macOS with many GPU clients).
+    """
+    forced = os.environ.get("IAQ4J_DEVICE")
+    if forced:
+        return torch.device(forced)
+
+    try:
+        from app.config import settings
+
+        cfg_device = settings.load_model_config().get("global", {}).get("device")
+        if cfg_device and cfg_device != "auto":
+            return torch.device(cfg_device)
+    except Exception:
+        pass
+
+    try:
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+    except Exception:
+        pass
+    if torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")
 

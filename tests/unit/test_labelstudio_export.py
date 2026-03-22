@@ -231,11 +231,13 @@ class TestExportBatching:
 
 class TestValidateConnection:
     def test_connection_failure(self, exporter):
-        """ConnectionError on health check should raise."""
+        """ServiceUnreachableError on health check should raise."""
         import requests as real_requests
 
+        from app.exceptions import ServiceUnreachableError
+
         with patch("requests.get", side_effect=real_requests.exceptions.ConnectionError("refused")):
-            with pytest.raises(ConnectionError, match="Cannot reach"):
+            with pytest.raises(ServiceUnreachableError, match="Cannot reach"):
                 exporter.validate()
 
     def test_missing_project_id_raises(self):

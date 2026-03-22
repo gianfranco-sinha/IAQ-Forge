@@ -69,3 +69,9 @@ class ConfigurationError(IAQError):
     """Required configuration or setup step was not completed."""
 
     code = DomainErrorCode.CONFIGURATION
+
+
+class ServiceUnreachableError(IAQError):
+    """Cannot connect to an external service (Label Studio, Ollama, etc.)."""
+
+    code = DomainErrorCode.SERVICE_UNREACHABLE

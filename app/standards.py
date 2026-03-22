@@ -124,12 +124,15 @@ def register_yaml_standards() -> None:
 # Public API
 # ---------------------------------------------------------------------------
 def get_standard_def(name: str) -> StandardDef:
-    """Look up a standard definition by name. Raises KeyError if not found."""
+    """Look up a standard definition by name. Raises ConfigurationError if not found."""
+    from app.exceptions import ConfigurationError
+
     defs = _load_definitions()
     if name not in defs:
-        raise KeyError(
+        raise ConfigurationError(
             f"Unknown IAQ standard: '{name}'. "
-            f"Available: {sorted(defs.keys())}"
+            f"Available: {sorted(defs.keys())}",
+            suggestion="Check iaq_standard.type in model_config.yaml",
         )
     return defs[name]
 

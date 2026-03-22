@@ -13,6 +13,7 @@ from app.exceptions import (
     StaleConfigError,
     NegativeR2Error,
     ConfigurationError,
+    ServiceUnreachableError,
 )
 from app.schemas import DomainErrorCode
 
@@ -33,6 +34,7 @@ class TestIAQErrorHierarchy:
         StaleConfigError,
         NegativeR2Error,
         ConfigurationError,
+        ServiceUnreachableError,
     ]
 
     @pytest.mark.parametrize("cls", SUBTYPES)
@@ -67,6 +69,7 @@ class TestDomainErrorCodeMapping:
         StaleConfigError: DomainErrorCode.STALE_CONFIG,
         NegativeR2Error: DomainErrorCode.NEGATIVE_R2,
         ConfigurationError: DomainErrorCode.CONFIGURATION,
+        ServiceUnreachableError: DomainErrorCode.SERVICE_UNREACHABLE,
     }
 
     @pytest.mark.parametrize("cls,expected_code", EXPECTED.items())

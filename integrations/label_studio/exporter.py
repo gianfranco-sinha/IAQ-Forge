@@ -168,12 +168,18 @@ class LabelStudioExporter:
             )
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(
-                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})"
+            from app.exceptions import ServiceUnreachableError
+
+            raise ServiceUnreachableError(
+                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})",
+                suggestion="Check that Label Studio is running and the URL is correct",
             ) from e
         except requests.exceptions.HTTPError as e:
-            raise ConnectionError(
-                f"Label Studio health check failed ({resp.status_code}): {e}"
+            from app.exceptions import ServiceUnreachableError
+
+            raise ServiceUnreachableError(
+                f"Label Studio health check failed ({resp.status_code}): {e}",
+                suggestion="Check Label Studio logs and API key",
             ) from e
 
         try:

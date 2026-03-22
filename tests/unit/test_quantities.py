@@ -99,8 +99,10 @@ class TestGetQuantity:
         assert q.canonical_unit == "Ω"
         assert q.valid_range is not None
 
-    def test_unknown_raises_key_error(self):
-        with pytest.raises(KeyError, match="Unknown quantity"):
+    def test_unknown_raises_configuration_error(self):
+        from app.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unknown quantity"):
             get_quantity("nonexistent_quantity")
 
     def test_has_description(self):
@@ -141,7 +143,9 @@ class TestConvertToCanonical:
         assert result == 25.0
 
     def test_unknown_unit_raises(self):
-        with pytest.raises(ValueError, match="No conversion"):
+        from app.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="No conversion"):
             convert_to_canonical(100.0, "unknown_unit", "temperature")
 
 

@@ -54,8 +54,10 @@ class TestYAMLLoading:
         assert d.higher_is_worse is False
         assert len(d.categories) == 4
 
-    def test_unknown_raises_keyerror(self):
-        with pytest.raises(KeyError, match="Unknown IAQ standard"):
+    def test_unknown_raises_configuration_error(self):
+        from app.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unknown IAQ standard"):
             get_standard_def("nonexistent")
 
 

@@ -129,12 +129,15 @@ def reload_registry() -> None:
 # ---------------------------------------------------------------------------
 
 def get_quantity(name: str) -> Quantity:
-    """Look up a quantity by name. Raises KeyError if not found."""
+    """Look up a quantity by name. Raises ConfigurationError if not found."""
+    from app.exceptions import ConfigurationError
+
     reg = _load_registry()
     if name not in reg:
-        raise KeyError(
+        raise ConfigurationError(
             f"Unknown quantity: '{name}'. "
-            f"Available: {sorted(reg.keys())}"
+            f"Available: {sorted(reg.keys())}",
+            suggestion="Check quantities.yaml for valid quantity names",
         )
     return reg[name]
 
@@ -155,9 +158,12 @@ def convert_to_canonical(value: float, from_unit: str, quantity_name: str) -> fl
         return value
     alt = q.alternate_units.get(from_unit)
     if alt is None:
-        raise ValueError(
+        from app.exceptions import ConfigurationError
+
+        raise ConfigurationError(
             f"No conversion from '{from_unit}' to '{q.canonical_unit}' "
             f"for quantity '{quantity_name}'. "
-            f"Known alternate units: {list(q.alternate_units.keys())}"
+            f"Known alternate units: {list(q.alternate_units.keys())}",
+            suggestion="Add the unit conversion to quantities.yaml",
         )
     return _safe_eval(alt.convert_expr, value)

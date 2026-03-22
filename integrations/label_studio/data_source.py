@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 
-from app.exceptions import ConfigurationError, SchemaMismatchError
+from app.exceptions import ConfigurationError, SchemaMismatchError, ServiceUnreachableError
 from training.data_sources import DataSource
 
 logger = logging.getLogger("integrations.label_studio")
@@ -75,12 +75,14 @@ class LabelStudioDataSource(DataSource):
             resp = requests.get(f"{self._url}/api/health", headers=headers, timeout=10)
             resp.raise_for_status()
         except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(
-                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})"
+            raise ServiceUnreachableError(
+                f"Cannot reach Label Studio at {self._url}. Is it running? ({e})",
+                suggestion="Check that Label Studio is running and the URL is correct",
             ) from e
         except requests.exceptions.HTTPError as e:
-            raise ConnectionError(
-                f"Label Studio health check failed ({resp.status_code}): {e}"
+            raise ServiceUnreachableError(
+                f"Label Studio health check failed ({resp.status_code}): {e}",
+                suggestion="Check Label Studio logs and API key",
             ) from e
 
         # Project existence check

@@ -117,11 +117,8 @@ def find_contiguous_segments(index, max_gap_factor=2.0):
     return segments, gap_info
 
 
-def calculate_absolute_humidity(temperature, rel_humidity):
-    """Calculate absolute humidity (g/m^3) from temperature (C) and relative humidity (%)."""
-    a, b = 17.27, 237.7
-    alpha = ((a * temperature) / (b + temperature)) + np.log(rel_humidity / 100.0)
-    return (6.112 * np.exp(alpha) * 2.1674) / (273.15 + temperature)
+# Re-exported from canonical location for backward compatibility
+from app.quantities import calculate_absolute_humidity  # noqa: F401
 
 
 def load_checkpoint(checkpoint_path: str) -> Optional[dict]:

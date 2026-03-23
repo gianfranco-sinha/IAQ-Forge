@@ -62,7 +62,7 @@ class BME680LogVOCProfile(BME680NoPressureProfile):
         timestamps: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Same as parent but replaces voc_resistance with log(voc_resistance)."""
-        from training.utils import calculate_absolute_humidity
+        from app.quantities import calculate_absolute_humidity
 
         voc_idx = self.raw_features.index("voc_resistance")
         temp_idx = self.raw_features.index("temperature")
@@ -133,7 +133,7 @@ class BME680LogVOCProfile(BME680NoPressureProfile):
         timestamp: Optional[datetime] = None,
     ) -> np.ndarray:
         """Single-reading version with log(voc_resistance)."""
-        from training.utils import calculate_absolute_humidity
+        from app.quantities import calculate_absolute_humidity
 
         voc_r = reading["voc_resistance"]
         log_voc = np.log(max(voc_r, 1))

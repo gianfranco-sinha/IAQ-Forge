@@ -12,6 +12,7 @@ from app.profiles import (
     SensorProfile,
     register_sensor,
 )
+from app.sensor_physics import BME680_LP
 from app.standards import register_yaml_standards
 
 
@@ -51,15 +52,15 @@ class BME680Profile(SensorProfile):
 
     @property
     def expected_interval_seconds(self) -> Optional[float]:
-        return 3.0  # BME680 LP mode
+        return BME680_LP.interval_seconds
 
     @property
     def warmup_seconds(self) -> float:
-        return 600.0  # 10 minutes — MOX heater plate stabilisation
+        return BME680_LP.heater.warmup_seconds
 
     @property
     def heater_temperature_c(self) -> Optional[float]:
-        return 320.0  # BSEC default heater temperature (LP mode)
+        return BME680_LP.heater.temperature_c
 
     @property
     def engineered_feature_names(self) -> List[str]:
@@ -117,7 +118,7 @@ class BME680Profile(SensorProfile):
         baselines: Optional[Dict[str, float]] = None,
         timestamps: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        from training.utils import calculate_absolute_humidity
+        from app.quantities import calculate_absolute_humidity
 
         voc_idx = self.raw_features.index("voc_resistance")
         temp_idx = self.raw_features.index("temperature")
@@ -176,7 +177,7 @@ class BME680Profile(SensorProfile):
         baselines: Optional[Dict[str, float]] = None,
         timestamp: Optional[datetime] = None,
     ) -> np.ndarray:
-        from training.utils import calculate_absolute_humidity
+        from app.quantities import calculate_absolute_humidity
 
         raw_vals = [reading[f] for f in self.raw_features]
 

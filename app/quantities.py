@@ -125,6 +125,23 @@ def reload_registry() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Derived physical quantities
+# ---------------------------------------------------------------------------
+
+def calculate_absolute_humidity(temperature, rel_humidity):
+    """Calculate absolute humidity (g/m³) from temperature (°C) and relative humidity (%).
+
+    Uses the Magnus formula approximation for saturation vapor pressure.
+    Accepts scalars or numpy arrays.
+    """
+    import numpy as np
+
+    a, b = 17.27, 237.7
+    alpha = ((a * temperature) / (b + temperature)) + np.log(rel_humidity / 100.0)
+    return (6.112 * np.exp(alpha) * 2.1674) / (273.15 + temperature)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

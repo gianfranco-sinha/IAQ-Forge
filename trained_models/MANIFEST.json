@@ -1321,9 +1321,25 @@
       "git_commit": "b206564",
       "version": "mlp-8.0.0",
       "model_type": "mlp",
-      "is_active": true,
+      "is_active": false,
       "schema_fingerprint": "eb5ccc012310",
       "merkle_root_hash": "81fd05b5e1598513414c6106af802fbe2183611f760d0fb43fc1c86898f033c9"
+    },
+    {
+      "timestamp": "2026-03-22T23:50:42.210351",
+      "data_fingerprint": "e316f97f88dce12fc0af1a71fa91c40be9c916a74478674ce742d011a33107e7",
+      "model_dir": "/Users/johnsinha/PycharmProjects/bsec_iaq_service/trained_models/ablation_log_voc/raw_voc/mlp",
+      "metrics": {
+        "mae": 22.55343865727914,
+        "rmse": 29.94726198214194,
+        "r2": 0.4654137630243813
+      },
+      "git_commit": "ae287c3",
+      "version": "mlp-8.1.0",
+      "model_type": "mlp",
+      "is_active": true,
+      "schema_fingerprint": "eb5ccc012310",
+      "merkle_root_hash": "f7d419d01bd567c149876177ef4e66ea1589d6f9acdd740f6de8c815744504b1"
     }
   ]
 }

@@ -327,7 +327,21 @@ class CSVDataSource(DataSource):
         ts_candidates = {"timestamp", "time", "datetime", "date", "ts"}
         for col in df.columns:
             if col.lower().strip() in ts_candidates:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
+                raw_na = int(df[col].isna().sum())
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    # Epoch seconds (values > 1e9 ≈ post-2001)
+                    if df[col].dropna().min() > 1e9:
+                        df[col] = pd.to_datetime(df[col], unit="s", errors="coerce", utc=True)
+                    else:
+                        df[col] = pd.to_datetime(df[col], errors="coerce")
+                else:
+                    df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+                coerced = int(df[col].isna().sum()) - raw_na
+                if coerced > 0:
+                    logger.warning(
+                        "%d timestamp(s) could not be parsed in column '%s'",
+                        coerced, col,
+                    )
                 df = df.set_index(col)
                 logger.info("Set timestamp index: %s", col)
                 break

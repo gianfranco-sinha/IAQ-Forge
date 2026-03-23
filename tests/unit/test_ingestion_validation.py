@@ -529,6 +529,138 @@ class TestNoDatetimeIndex:
 
 
 # ===================================================================
+# Sampling interval — detail stats & variable-rate detection
+# ===================================================================
+
+class TestSamplingIntervalDetail:
+    def test_interval_stats_in_stage_result_extra(self):
+        """Interval stats dict should appear in StageResult extra."""
+        df = _make_bme680_df(freq="3s")
+        _, result = _run_ingestion(df)
+        stats = result.extra.get("interval_stats")
+        assert stats is not None
+        assert "median_seconds" in stats
+        assert "p5_seconds" in stats
+        assert "p95_seconds" in stats
+        assert "expected_seconds" in stats
+        assert abs(stats["median_seconds"] - 3.0) < 0.5
+
+    def test_variable_rate_detected(self):
+        """Exponentially distributed intervals should trigger CV warning (CV > 1)."""
+        rng = np.random.default_rng(42)
+        n = 200
+        # Exponential distribution has CV = 1.0; scale ensures gaps vary widely
+        gaps = rng.exponential(scale=30.0, size=n - 1).clip(min=0.1)
+        timestamps = [pd.Timestamp("2026-01-01", tz="UTC")]
+        for g in gaps:
+            timestamps.append(timestamps[-1] + pd.Timedelta(seconds=float(g)))
+        index = pd.DatetimeIndex(timestamps)
+        df = _make_bme680_df(n=n, index=index)
+        pipeline, result = _run_ingestion(df)
+        msgs = _report_messages(pipeline)
+        assert any("variability" in m.lower() or "cv=" in m.lower() for m in msgs)
+        stats = result.extra.get("interval_stats")
+        assert stats is not None
+        assert stats["cv"] > 1.0
+
+    def test_steady_rate_no_cv_warning(self):
+        """Steady 3s intervals should not trigger CV warning."""
+        df = _make_bme680_df(freq="3s")
+        pipeline, _ = _run_ingestion(df)
+        msgs = _report_messages(pipeline)
+        assert not any("variability" in m.lower() for m in msgs)
+
+
+# ===================================================================
+# CSV timestamp parsing hardening
+# ===================================================================
+
+class TestCSVTimestampParsing:
+    def test_epoch_seconds_parsed(self, tmp_path):
+        """CSV with numeric epoch-second timestamps should parse correctly."""
+        from app.profiles import get_iaq_standard, get_sensor_profile
+
+        profile = get_sensor_profile()
+        standard = get_iaq_standard()
+        rng = np.random.default_rng(42)
+        n = 50
+        base_epoch = 1700000000  # Nov 2023
+
+        df = pd.DataFrame({
+            "timestamp": [base_epoch + i * 3 for i in range(n)],
+            "temperature": rng.uniform(20, 26, n),
+            "rel_humidity": rng.uniform(40, 60, n),
+            "pressure": rng.uniform(1000, 1020, n),
+            "voc_resistance": rng.uniform(10000, 200000, n),
+            "iaq": rng.uniform(0, 300, n),
+            "iaq_accuracy": np.full(n, 3),
+        })
+        csv_path = tmp_path / "epoch.csv"
+        df.to_csv(csv_path, index=False)
+
+        source = CSVDataSource(str(csv_path))
+        source.validate()
+        result = source.fetch()
+        assert isinstance(result.index, pd.DatetimeIndex)
+        assert result.index.tz is not None  # should be UTC
+
+    def test_mixed_format_timestamps_logged(self, tmp_path, caplog):
+        """CSV with unparseable timestamps should log a warning."""
+        rng = np.random.default_rng(42)
+        n = 10
+        timestamps = [f"2026-01-01T{i:02d}:00:00Z" for i in range(n - 2)]
+        timestamps += ["not_a_date", "also_bad"]
+
+        df = pd.DataFrame({
+            "timestamp": timestamps,
+            "temperature": rng.uniform(20, 26, n),
+            "rel_humidity": rng.uniform(40, 60, n),
+            "pressure": rng.uniform(1000, 1020, n),
+            "voc_resistance": rng.uniform(10000, 200000, n),
+            "iaq": rng.uniform(0, 300, n),
+            "iaq_accuracy": np.full(n, 3),
+        })
+        csv_path = tmp_path / "mixed.csv"
+        df.to_csv(csv_path, index=False)
+
+        source = CSVDataSource(str(csv_path))
+        source.validate()
+        with caplog.at_level(logging.WARNING, logger="training.data_sources"):
+            result = source.fetch()
+        assert any("could not be parsed" in r.message for r in caplog.records)
+        # 2 bad timestamps become NaT
+        assert result.index.isna().sum() == 2
+
+    def test_mixed_timezone_strings_normalized(self, tmp_path):
+        """CSV with mixed tz offsets should produce UTC DatetimeIndex."""
+        rng = np.random.default_rng(42)
+        n = 4
+        timestamps = [
+            "2026-01-01T12:00:00Z",
+            "2026-01-01T13:00:00+05:00",
+            "2026-01-01T14:00:00-03:00",
+            "2026-01-01T15:00:00Z",
+        ]
+        df = pd.DataFrame({
+            "timestamp": timestamps,
+            "temperature": rng.uniform(20, 26, n),
+            "rel_humidity": rng.uniform(40, 60, n),
+            "pressure": rng.uniform(1000, 1020, n),
+            "voc_resistance": rng.uniform(10000, 200000, n),
+            "iaq": rng.uniform(0, 300, n),
+            "iaq_accuracy": np.full(n, 3),
+        })
+        csv_path = tmp_path / "mixed_tz.csv"
+        df.to_csv(csv_path, index=False)
+
+        source = CSVDataSource(str(csv_path))
+        source.validate()
+        result = source.fetch()
+        assert isinstance(result.index, pd.DatetimeIndex)
+        assert str(result.index.tz) == "UTC"
+
+
+# ===================================================================
 # PreprocessingReport
 # ===================================================================
 

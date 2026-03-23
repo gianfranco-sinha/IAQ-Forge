@@ -1,4 +1,4 @@
-"""Cross-training: self-supervised pre-training + supervised fine-tuning.
+"""Pre-train + fine-tune: self-supervised pre-training with supervised fine-tuning.
 
 Phase 1: Pre-train a masked autoencoder on ALL available sensor data
          (no IAQ labels needed — uses raw BME680 readings only).
@@ -6,9 +6,9 @@ Phase 2: Transfer encoder weights to MLP, fine-tune on labeled BSEC data.
 Phase 3 (optional): Pseudo-label high-confidence old data, retrain on combined.
 
 Usage:
-    python cross_train.py --pretrain-epochs 100 --finetune-epochs 200
-    python cross_train.py --skip-pretrain --encoder-path cache/encoder.pt
-    python cross_train.py --pseudo-label --confidence 0.9
+    python experiments/pretrain_finetune.py --pretrain-epochs 100 --finetune-epochs 200
+    python experiments/pretrain_finetune.py --skip-pretrain --encoder-path cache/encoder.pt
+    python experiments/pretrain_finetune.py --pseudo-label --confidence 0.9
 
 Requires:
     - Unlabeled data: cache/combined_3month_iaq.parquet or InfluxDB
@@ -45,7 +45,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(name)s %(levelname)s %(message)s",
 )
-logger = logging.getLogger("cross_train")
+logger = logging.getLogger("pretrain_finetune")
 
 COMBINED_PARQUET = Path("cache/combined_3month_iaq.parquet")
 INFLUX_CACHE = Path("cache/influxdb_a4b58597429641c7.parquet")
@@ -173,7 +173,7 @@ def run_finetune(
     print(f"  Freeze encoder: {freeze_encoder}")
     print("=" * 70)
 
-    output_dir = f"trained_models/cross_train/{model_type}"
+    output_dir = f"trained_models/pretrain_finetune/{model_type}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     source = ParquetSource(data_path)
@@ -240,11 +240,11 @@ def run_finetune(
 
     tcfg = settings.get_training_config()
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    tb_dir = str(Path(tcfg.get("tensorboard_log_dir", "runs")) / f"cross_train_{model_type}_{ts}")
+    tb_dir = str(Path(tcfg.get("tensorboard_log_dir", "runs")) / f"pretrain_finetune_{model_type}_{ts}")
 
     history = train_model(
         model=model,
-        model_name=f"{model_type.upper()} (cross-trained)",
+        model_name=f"{model_type.upper()} (fine-tuned)",
         X_train=pipeline._X_train,
         y_train=pipeline._y_train,
         X_val=pipeline._X_val,
@@ -315,7 +315,7 @@ def run_finetune(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Cross-training: pre-train + fine-tune")
+    parser = argparse.ArgumentParser(description="Pre-train + fine-tune (transfer learning)")
     parser.add_argument("--pretrain-epochs", type=int, default=100,
                         help="Pre-training epochs (Phase 1)")
     parser.add_argument("--finetune-epochs", type=int, default=200,
@@ -391,7 +391,7 @@ def main():
 
     # ── Summary ──
     print(f"\n{'=' * 70}")
-    print("CROSS-TRAINING COMPLETE")
+    print("PRE-TRAIN + FINE-TUNE COMPLETE")
     print(f"{'=' * 70}")
     print(f"  Pre-training:  {pretrain_result.get('epochs_trained', '?')} epochs, "
           f"val_loss={pretrain_result.get('best_val_loss', 0):.6f}")
@@ -404,10 +404,10 @@ def main():
     print(f"  Time:          {elapsed / 60:.1f} minutes")
 
     # Save results
-    output_dir = Path("trained_models/cross_train")
+    output_dir = Path("trained_models/pretrain_finetune")
     output_dir.mkdir(parents=True, exist_ok=True)
     results = {
-        "experiment": "cross_training",
+        "experiment": "pretrain_finetune",
         "timestamp": datetime.utcnow().isoformat(),
         "data_source": str(data_path),
         "pretrain": {
